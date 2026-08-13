@@ -82,3 +82,10 @@ export const fetchMessages = (peer: string) => fetch(`/api/messages/${peer}`).th
 export const fetchPosts = (cid: number) => fetch(`/api/posts/${cid}`).then((r) => json<PostRow[]>(r));
 
 export const fetchRoster = () => fetch("/api/roster").then((r) => json<{ online: string[]; hams: HamInfo[] }>(r));
+
+export const uploadAvatar = (imageBase64: string) =>
+  fetch("/api/avatar/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageBase64 }),
+  }).then((r) => json<{ ok: true }>(r));

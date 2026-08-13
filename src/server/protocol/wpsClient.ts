@@ -330,6 +330,10 @@ export class WpsClient extends EventEmitter {
     if (row) this.emitEvent({ type: "post", row });
   }
 
+  async sendAvatar(imageBase64: string): Promise<void> {
+    await this.send({ t: "a", a: imageBase64, ts: Date.now() });
+  }
+
   async keepAlive(): Promise<void> {
     await this.send({ t: "k" });
   }
@@ -655,6 +659,10 @@ export class WpsClient extends EventEmitter {
           hamsDb.upsertHam(h.c, h.n ?? "", h.ts ?? 0);
           this.emitEvent({ type: "ham", ham: { callsign: h.c.toUpperCase(), name: h.n ?? "", ts: h.ts ?? 0 } });
         }
+        break;
+      }
+      case "ar": {
+        // Server acknowledged our avatar upload — nothing to do client-side.
         break;
       }
       case "a": {
