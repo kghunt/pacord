@@ -5,7 +5,7 @@ import { useConnectionStore } from "../state/connectionStore";
 import { fetchSettings, saveSettings } from "../api/rest";
 
 export function ProfileManager({ onClose }: { onClose: () => void }) {
-  const { profiles, connectionState, deleteProfile, connect, disconnect } = useConnectionStore();
+  const { profiles, connectionState, createProfile, deleteProfile, connect, disconnect } = useConnectionStore();
   const [editing, setEditing] = useState<ConnectProfile | "new" | null>(null);
   const [idleMinutes, setIdleMinutes] = useState<number>(0);
   const [idleSaving, setIdleSaving] = useState(false);
@@ -72,6 +72,15 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
                 )}
                 <button className="btn small" onClick={() => setEditing(p)}>
                   Edit
+                </button>
+                <button
+                  className="btn small"
+                  onClick={() => {
+                    const { id: _id, ...rest } = p;
+                    createProfile({ ...rest, name: `${p.name} (copy)`, isDefault: false });
+                  }}
+                >
+                  Duplicate
                 </button>
                 <button
                   className="btn small danger"
