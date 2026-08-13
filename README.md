@@ -8,31 +8,20 @@ This is **not** WhatsApp. WhatsPac is a text chat service for the amateur packet
 
 Pre-built images for x86-64, Raspberry Pi 4/5 (arm64), and Pi 3 (armv7) are published automatically on every push to `main`.
 
-**One command:**
-
 ```bash
-docker run -d --restart unless-stopped -p 3000:3000 -v pacord-data:/data ghcr.io/kghunt/pacord
+curl -O https://raw.githubusercontent.com/kghunt/pacord/main/docker-compose.yml
+sudo docker compose up -d
 ```
 
 Then open `http://localhost:3000` (or `http://<pi-ip>:3000` from any device on your LAN).
 
-**Or with Docker Compose** — save this as `docker-compose.yml` and run `docker compose up -d`:
+Your connection profiles and chat history are stored in the `pacord-data` Docker volume and survive updates. To change the port, edit `docker-compose.yml` and replace the left-hand `3000` (e.g. `"8080:3000"`).
 
-```yaml
-services:
-  pacord:
-    image: ghcr.io/kghunt/pacord:latest
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    volumes:
-      - pacord-data:/data
+**To update:**
 
-volumes:
-  pacord-data:
+```bash
+sudo docker compose pull && sudo docker compose up -d
 ```
-
-Your connection profiles and chat history are stored in the `pacord-data` Docker volume and survive container updates. To change the port, replace the left-hand `3000` in the port mapping (e.g. `"8080:3000"`).
 
 ---
 
