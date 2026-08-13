@@ -1,7 +1,17 @@
 import { useEffect } from "react";
 import { connectSocket, onServerEvent } from "./socket";
-import { useConnectionStore } from "../state/connectionStore";
+import { useConnectionStore, displayNameFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
+
+function notify(title: string, body: string) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  if (!document.hidden) return;
+  try {
+    new Notification(title, { body: body.slice(0, 100), icon: "/icon.svg", badge: "/icon.svg" });
+  } catch {
+    // Notification constructor unavailable in some contexts (e.g. Firefox private mode)
+  }
+}
 
 /** Opens the shared backend WebSocket once and fans out ServerEvents into
  * the zustand stores. Mount once near the app root. */
@@ -26,6 +36,7 @@ export function useBackendSocket(): void {
               const { activeTarget } = useChatStore.getState();
               if (!(activeTarget?.type === "dm" && activeTarget.peer === peer)) {
                 useChatStore.getState().incrementUnread(peer);
+                notify(displayNameFor(peer), ev.row.body);
               }
             }
           }
@@ -45,6 +56,8 @@ export function useBackendSocket(): void {
               const { activeTarget } = useChatStore.getState();
               if (!(activeTarget?.type === "channel" && activeTarget.cid === ev.row.cid)) {
                 useChatStore.getState().incrementUnread(`channel:${ev.row.cid}`);
+                const ch = useChatStore.getState().channels.find((c) => c.cid === ev.row.cid);
+                notify(`#${ch?.name ?? ev.row.cid}`, `${displayNameFor(ev.row.fromCall)}: ${ev.row.body}`);
               }
             }
           }

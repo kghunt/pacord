@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useConnectionStore, displayNameFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
 
@@ -14,6 +15,16 @@ export function Sidebar({
   const { channels, peers, activeTarget, setActiveTarget, loadMessages, loadPosts, unreadCounts } = useChatStore();
 
   const activeProfile = profiles.find((p) => p.id === connectionState.activeProfileId);
+
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission>(
+    typeof Notification !== "undefined" ? Notification.permission : "denied"
+  );
+
+  async function requestNotifications() {
+    if (typeof Notification === "undefined") return;
+    const result = await Notification.requestPermission();
+    setNotifPerm(result);
+  }
 
   // Viewing a channel only loads whatever local history is already cached —
   // it does NOT subscribe. Subscribing (which triggers a live feed + a
@@ -109,6 +120,18 @@ export function Sidebar({
         </div>
         <button className="icon-button" title="Avatars" onClick={onOpenAvatars}>
           🖼
+        </button>
+        <button
+          className="icon-button"
+          style={{ color: notifPerm === "granted" ? "var(--online)" : notifPerm === "denied" ? "var(--danger)" : undefined }}
+          title={
+            notifPerm === "granted" ? "Notifications enabled" :
+            notifPerm === "denied" ? "Notifications blocked — enable in browser settings" :
+            "Enable notifications"
+          }
+          onClick={requestNotifications}
+        >
+          {notifPerm === "denied" ? "🔕" : "🔔"}
         </button>
         <button className="icon-button" title="Node terminal" onClick={onOpenTerminal}>
           ⌨
