@@ -122,7 +122,8 @@ export type ServerEvent =
   | { type: "channel_subscribed"; cid: number; subscribed: boolean; postCount: number }
   | { type: "paused_channel"; cid: number; pendingCount: number }
   | { type: "avatar_count"; count: number }
-  | { type: "avatar"; callsign: string };
+  | { type: "avatar"; callsign: string }
+  | { type: "debug_frame"; direction: "in" | "out"; frame: string; tsMs: number };
 
 // ---------------------------------------------------------------------------
 // Frontend -> backend actions (sent over /ws)
@@ -139,4 +140,5 @@ export type ClientAction =
   | { type: "unsubscribe"; cid: number }
   | { type: "unpause_channel"; cid: number; postCount: number }
   | { type: "request_post_batch"; cid: number; count: number }
-  | { type: "request_avatars"; countOnly: boolean };
+  | { type: "request_avatars"; countOnly: boolean }
+  | { type: "set_debug"; enabled: boolean };

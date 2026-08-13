@@ -6,10 +6,12 @@ export function Sidebar({
   onOpenSettings,
   onOpenTerminal,
   onOpenAvatars,
+  onOpenDebug,
 }: {
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onOpenAvatars: () => void;
+  onOpenDebug: () => void;
 }) {
   const { connectionState, profiles } = useConnectionStore();
   const { channels, peers, activeTarget, setActiveTarget, loadMessages, loadPosts, unreadCounts } = useChatStore();
@@ -135,6 +137,9 @@ export function Sidebar({
         </button>
         <button className="icon-button" title="Node terminal" onClick={onOpenTerminal}>
           ⌨
+        </button>
+        <button className="icon-button" title="WPS frame log" onClick={onOpenDebug}>
+          🐛
         </button>
         <button className="icon-button" title="Connection profiles" onClick={onOpenSettings}>
           ⚙

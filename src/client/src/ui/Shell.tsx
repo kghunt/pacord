@@ -5,6 +5,7 @@ import { OnlineUsersPane } from "./OnlineUsersPane";
 import { ProfileManager } from "./ProfileManager";
 import { TerminalPanel } from "./TerminalPanel";
 import { AvatarManager } from "./AvatarManager";
+import { DebugTerminal } from "./DebugTerminal";
 import { useConnectionStore } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
 import { fetchVersion } from "../api/rest";
@@ -13,6 +14,7 @@ export function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [avatarsOpen, setAvatarsOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; version: string } | null>(null);
   const profiles = useConnectionStore((s) => s.profiles);
@@ -49,12 +51,14 @@ export function Shell() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenTerminal={() => setTerminalOpen(true)}
         onOpenAvatars={() => setAvatarsOpen(true)}
+        onOpenDebug={() => setDebugOpen(true)}
       />
       <ChatPane />
       <OnlineUsersPane />
       {settingsOpen && <ProfileManager onClose={() => setSettingsOpen(false)} />}
       {terminalOpen && <TerminalPanel onClose={() => setTerminalOpen(false)} />}
       {avatarsOpen && <AvatarManager onClose={() => setAvatarsOpen(false)} />}
+      {debugOpen && <DebugTerminal onClose={() => setDebugOpen(false)} />}
     </div>
     </>
   );

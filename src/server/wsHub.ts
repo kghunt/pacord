@@ -10,6 +10,18 @@ import * as metaDb from "./db/meta.js";
 import { getActiveClient, getConnectionState, disconnect } from "./connectionManager.js";
 
 const sockets = new Set<WebSocket>();
+const debugSockets = new Set<WebSocket>();
+
+export function broadcastDebug(ev: ServerEvent): void {
+  const text = JSON.stringify(ev);
+  for (const ws of debugSockets) {
+    if (ws.readyState === ws.OPEN) ws.send(text);
+  }
+}
+
+function syncDebugMode(): void {
+  getActiveClient()?.setDebug(debugSockets.size > 0);
+}
 
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -51,18 +63,20 @@ export function attachClient(ws: WebSocket): void {
     } catch {
       return;
     }
-    handleAction(action).catch((err) => {
+    handleAction(ws, action).catch((err) => {
       console.error("action failed:", action.type, err);
     });
   });
 
   ws.on("close", () => {
     sockets.delete(ws);
+    debugSockets.delete(ws);
+    syncDebugMode();
     if (sockets.size === 0) startIdleTimer();
   });
 }
 
-async function handleAction(action: ClientAction): Promise<void> {
+async function handleAction(ws: WebSocket, action: ClientAction): Promise<void> {
   const client = getActiveClient();
   switch (action.type) {
     case "send_message":
@@ -112,6 +126,14 @@ async function handleAction(action: ClientAction): Promise<void> {
     case "request_avatars":
       if (!client) throw new Error("not connected");
       await client.requestAvatars(action.countOnly);
+      break;
+    case "set_debug":
+      if (action.enabled) {
+        debugSockets.add(ws);
+      } else {
+        debugSockets.delete(ws);
+      }
+      syncDebugMode();
       break;
   }
 }

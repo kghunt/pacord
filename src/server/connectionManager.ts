@@ -9,7 +9,7 @@ import type { ConnectionState, ServerEvent } from "../shared/types.js";
 import * as profilesDb from "./db/profiles.js";
 import * as metaDb from "./db/meta.js";
 import { WpsClient } from "./protocol/wpsClient.js";
-import { broadcast } from "./wsHub.js";
+import { broadcast, broadcastDebug } from "./wsHub.js";
 
 const ACTIVE_PROFILE_META_KEY = "active_profile_id";
 const RETRY_INITIAL_MS = 2000;
@@ -52,7 +52,10 @@ export function connectProfile(id: number): void {
 
   const token = ++connectToken;
   const client = new WpsClient(profile);
-  client.on("event", (ev: ServerEvent) => broadcast(ev));
+  client.on("event", (ev: ServerEvent) => {
+    if (ev.type === "debug_frame") broadcastDebug(ev);
+    else broadcast(ev);
+  });
   activeClient = client;
   attemptConnect(client, token, RETRY_INITIAL_MS);
 }

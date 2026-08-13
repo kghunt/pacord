@@ -47,6 +47,11 @@ export class WpsClient extends EventEmitter {
   private reconnectDelay = RECONNECT_INITIAL_MS;
   private reconnecting = false;
   private stabilityTimer: ReturnType<typeof setTimeout> | null = null;
+  private debugEnabled = false;
+
+  setDebug(enabled: boolean): void {
+    this.debugEnabled = enabled;
+  }
 
   constructor(profile: ConnectProfile) {
     super();
@@ -214,6 +219,9 @@ export class WpsClient extends EventEmitter {
     if (!this.stream || !this.connected) {
       throw new Error("not connected");
     }
+    if (this.debugEnabled) {
+      this.emitEvent({ type: "debug_frame", direction: "out", frame: JSON.stringify(obj), tsMs: Date.now() });
+    }
     await this.stream.send(codec.encode(obj));
   }
 
@@ -376,6 +384,9 @@ export class WpsClient extends EventEmitter {
           return;
         }
         for (const obj of objs) {
+          if (this.debugEnabled) {
+            this.emitEvent({ type: "debug_frame", direction: "in", frame: JSON.stringify(obj), tsMs: Date.now() });
+          }
           this.dispatch(obj as Record<string, unknown>);
         }
       }
