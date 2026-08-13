@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import EmojiPicker, { EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 
 export function Composer({
   placeholder,
@@ -16,7 +17,9 @@ export function Composer({
   onSubmit: (text: string) => void;
 }) {
   const [text, setText] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const cursorPos = useRef<number>(0);
 
   useEffect(() => {
     if (editingText !== null) {
@@ -42,6 +45,27 @@ export function Composer({
     }
   }
 
+  function saveCursor() {
+    cursorPos.current = ref.current?.selectionStart ?? text.length;
+  }
+
+  function insertEmoji(data: EmojiClickData) {
+    const pos = cursorPos.current;
+    const next = text.slice(0, pos) + data.emoji + text.slice(pos);
+    setText(next);
+    setPickerOpen(false);
+    // restore focus and move cursor after the inserted emoji
+    requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
+      el.focus();
+      const newPos = pos + data.emoji.length;
+      el.setSelectionRange(newPos, newPos);
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    });
+  }
+
   return (
     <div className="composer-wrap">
       {replyLabel && (
@@ -63,7 +87,10 @@ export function Composer({
           </button>
         </div>
       )}
-      <div className="composer" style={editingText !== null || replyLabel ? { borderRadius: "0 0 8px 8px" } : undefined}>
+      <div
+        className="composer"
+        style={editingText !== null || replyLabel ? { borderRadius: "0 0 8px 8px" } : undefined}
+      >
         <textarea
           ref={ref}
           rows={1}
@@ -75,11 +102,31 @@ export function Composer({
             e.target.style.height = `${e.target.scrollHeight}px`;
           }}
           onKeyDown={onKeyDown}
+          onSelect={saveCursor}
+          onBlur={saveCursor}
         />
+        <button
+          className="emoji-toggle"
+          title="Insert emoji"
+          onClick={() => {
+            saveCursor();
+            setPickerOpen((v) => !v);
+          }}
+        >
+          😊
+        </button>
         <button className="send" disabled={!text.trim()} onClick={submit}>
           {editingText !== null ? "Save" : "Send"}
         </button>
       </div>
+      {pickerOpen && (
+        <>
+          <div className="emoji-picker-backdrop" onClick={() => setPickerOpen(false)} />
+          <div className="composer-emoji-picker">
+            <EmojiPicker onEmojiClick={insertEmoji} emojiStyle={EmojiStyle.NATIVE} autoFocusSearch={false} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
