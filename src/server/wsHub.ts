@@ -6,9 +6,29 @@
 import type { WebSocket } from "ws";
 import type { ClientAction, ServerEvent } from "../shared/types.js";
 import * as channelsDb from "./db/channels.js";
-import { getActiveClient, getConnectionState } from "./connectionManager.js";
+import * as metaDb from "./db/meta.js";
+import { getActiveClient, getConnectionState, disconnect } from "./connectionManager.js";
 
 const sockets = new Set<WebSocket>();
+
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelIdleTimer() {
+  if (idleTimer !== null) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+}
+
+function startIdleTimer() {
+  cancelIdleTimer();
+  const minutes = metaDb.getMetaNumber("idle_disconnect_minutes", 0);
+  if (minutes <= 0) return;
+  idleTimer = setTimeout(() => {
+    idleTimer = null;
+    disconnect();
+  }, minutes * 60 * 1000);
+}
 
 export function broadcast(ev: ServerEvent): void {
   const text = JSON.stringify(ev);
@@ -20,6 +40,7 @@ export function broadcast(ev: ServerEvent): void {
 }
 
 export function attachClient(ws: WebSocket): void {
+  cancelIdleTimer();
   sockets.add(ws);
   ws.send(JSON.stringify({ type: "connection_state", state: getConnectionState() } satisfies ServerEvent));
 
@@ -37,6 +58,7 @@ export function attachClient(ws: WebSocket): void {
 
   ws.on("close", () => {
     sockets.delete(ws);
+    if (sockets.size === 0) startIdleTimer();
   });
 }
 

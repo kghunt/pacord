@@ -11,6 +11,7 @@ import { registerConnectionRoutes } from "./routes/connection.js";
 import { registerHistoryRoutes } from "./routes/history.js";
 import { registerAvatarRoutes } from "./routes/avatars.js";
 import { registerVersionRoute } from "./routes/version.js";
+import { registerSettingsRoutes } from "./routes/settings.js";
 import { attachClient } from "./wsHub.js";
 import { autoConnectOnStartup } from "./connectionManager.js";
 
@@ -36,6 +37,7 @@ await registerConnectionRoutes(app);
 await registerHistoryRoutes(app);
 await registerAvatarRoutes(app);
 await registerVersionRoute(app);
+await registerSettingsRoutes(app);
 
 app.register(async (instance) => {
   instance.get("/ws", { websocket: true }, (socket) => {

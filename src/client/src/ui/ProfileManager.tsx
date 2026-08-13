@@ -1,11 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AxLevel, ConnectProfile, Engine, HopStep, NewConnectProfile, Transport } from "@shared/types";
 import { defaultPort, defaultRadioPort, defaultRemote } from "@shared/engineDefaults";
 import { useConnectionStore } from "../state/connectionStore";
+import { fetchSettings, saveSettings } from "../api/rest";
 
 export function ProfileManager({ onClose }: { onClose: () => void }) {
   const { profiles, connectionState, deleteProfile, connect, disconnect } = useConnectionStore();
   const [editing, setEditing] = useState<ConnectProfile | "new" | null>(null);
+  const [idleMinutes, setIdleMinutes] = useState<number>(0);
+  const [idleSaving, setIdleSaving] = useState(false);
+  const [idleSaved, setIdleSaved] = useState(false);
+
+  useEffect(() => {
+    fetchSettings().then((s) => setIdleMinutes(s.idleDisconnectMinutes)).catch(() => {});
+  }, []);
+
+  async function saveIdle() {
+    setIdleSaving(true);
+    setIdleSaved(false);
+    try {
+      await saveSettings({ idleDisconnectMinutes: idleMinutes });
+      setIdleSaved(true);
+    } finally {
+      setIdleSaving(false);
+    }
+  }
 
   if (editing) {
     return <ProfileForm profile={editing === "new" ? null : editing} onDone={() => setEditing(null)} />;
@@ -67,6 +86,29 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
             </div>
           );
         })}
+
+        <div className="settings-section">
+          <h3>Server Settings</h3>
+          <div className="form-row" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <label style={{ flex: "none", marginBottom: 0 }}>Auto-disconnect from WPS after</label>
+            <input
+              type="number"
+              min={0}
+              style={{ width: 70 }}
+              value={idleMinutes}
+              onChange={(e) => { setIdleMinutes(Number(e.target.value)); setIdleSaved(false); }}
+            />
+            <span style={{ color: "var(--text-muted)" }}>minutes idle (0 = never)</span>
+            <button className="btn small primary" onClick={saveIdle} disabled={idleSaving}>
+              {idleSaving ? "Saving…" : "Save"}
+            </button>
+            {idleSaved && <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Saved</span>}
+          </div>
+          <p className="form-hint">
+            If no browser has the app open for this many minutes the server will disconnect from WPS, marking
+            you offline on the network. Reconnects automatically when you next open the app.
+          </p>
+        </div>
 
         <div className="form-actions">
           <button className="btn" onClick={onClose}>
@@ -252,15 +294,21 @@ function ProfileForm({ profile, onDone }: { profile: ConnectProfile | null; onDo
               <div className="form-row">
                 <label>Link level</label>
                 <select value={axLevel} onChange={(e) => setAxLevel(e.target.value as AxLevel)}>
-                  <option value="L2">L2 — direct AX.25 (WPS on this node, or explicit hops below)</option>
-                  <option value="L4">L4 — NET-ROM (routed to a WPS hosted on another node)</option>
+                  <option value="L2">L2 — direct AX.25 connection</option>
+                  <option value="L4">L4 — NET-ROM routed connection</option>
                 </select>
               </div>
               <div className="form-row">
-                <label>Remote (AX.25/NET-ROM destination)</label>
+                <label>Remote (first AX.25 / NET-ROM destination)</label>
                 <input value={remote} onChange={(e) => setRemote(e.target.value)} />
               </div>
             </div>
+            <p className="form-hint">
+              <strong>Remote</strong> is the alias or callsign the app connects to on your node — the WPS
+              application port (e.g. <code>WPS</code> or <code>WHATSPAC</code>). If WPS lives directly on
+              this node you are done. If WPS is on a <em>different</em> node reachable via digipeating or
+              NET/ROM, set Remote to your first hop and add the remaining hops in the connect script below.
+            </p>
 
             <div className="form-row">
               <label>Response timeout (seconds)</label>
@@ -271,8 +319,8 @@ function ProfileForm({ profile, onDone }: { profile: ConnectProfile | null; onDo
                 onChange={(e) => setResponseTimeoutS(Number(e.target.value))}
               />
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                How long to wait for a reply (RHP open, hop-script text) before giving up. RF links vary — a
-                reply can be near-instant or take 30-60s.
+                How long to wait for a response at each step before giving up. RF links can take 30–60 s on
+                a busy channel — increase this if you get timeouts.
               </span>
             </div>
 
@@ -288,18 +336,24 @@ function ProfileForm({ profile, onDone }: { profile: ConnectProfile | null; onDo
             </div>
 
             <div className="form-row">
-              <label>Multi-hop connect script (BPQ / manual node hops)</label>
+              <label>Connect script — hops after the initial connection</label>
+              <p className="form-hint" style={{ marginTop: 0, marginBottom: 8 }}>
+                Only needed when WPS is on a different node. Each row sends a command and waits for the
+                node to reply with the text in the "wait for" column. Do <strong>not</strong> repeat the
+                Remote alias here — it is connected first automatically. Example: connect to your node via
+                Remote <code>GB7XX</code>, then hop onward with <code>C WPS</code>.
+              </p>
               {connectScript.map((step, i) => (
                 <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                   <input
                     style={{ flex: 1, minWidth: 0 }}
-                    placeholder="cmd (e.g. C GB7BSK-9)"
+                    placeholder="command (e.g. C WPSNODE)"
                     value={step.cmd}
                     onChange={(e) => updateStep(i, { cmd: e.target.value })}
                   />
                   <input
                     style={{ flex: 1, minWidth: 0 }}
-                    placeholder="wait for..."
+                    placeholder="wait for text (e.g. Connected)"
                     value={step.val}
                     onChange={(e) => updateStep(i, { val: e.target.value })}
                   />
