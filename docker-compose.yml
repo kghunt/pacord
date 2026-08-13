@@ -1,0 +1,11 @@
+services:
+  pacord:
+    image: ghcr.io/kghunt/pacord:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - pacord-data:/data
+
+volumes:
+  pacord-data:

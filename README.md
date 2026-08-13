@@ -4,6 +4,38 @@ A Discord-inspired chat client for **WhatsPac** (WPS), the packet-radio chat ser
 
 This is **not** WhatsApp. WhatsPac is a text chat service for the amateur packet-radio network (channels + DMs, like Discord/IRC), published from an XRouter/BPQ node and reachable over AX.25/NET-ROM.
 
+## Quick start (Docker)
+
+Pre-built images for x86-64, Raspberry Pi 4/5 (arm64), and Pi 3 (armv7) are published automatically on every push to `main`.
+
+**One command:**
+
+```bash
+docker run -d --restart unless-stopped -p 3000:3000 -v pacord-data:/data ghcr.io/kghunt/pacord
+```
+
+Then open `http://localhost:3000` (or `http://<pi-ip>:3000` from any device on your LAN).
+
+**Or with Docker Compose** — save this as `docker-compose.yml` and run `docker compose up -d`:
+
+```yaml
+services:
+  pacord:
+    image: ghcr.io/kghunt/pacord:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - pacord-data:/data
+
+volumes:
+  pacord-data:
+```
+
+Your connection profiles and chat history are stored in the `pacord-data` Docker volume and survive container updates. To change the port, replace the left-hand `3000` in the port mapping (e.g. `"8080:3000"`).
+
+---
+
 ## Features
 
 - Discord-style UI: channels + DMs in a sidebar, message pane with replies/edits/reactions, online-users list
