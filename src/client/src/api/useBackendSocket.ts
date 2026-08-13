@@ -18,7 +18,7 @@ export function useBackendSocket(): void {
           const { activeProfileId } = useConnectionStore.getState().connectionState;
           const myCall = useConnectionStore
             .getState()
-            .profiles.find((p) => p.id === activeProfileId)?.myCall.toUpperCase();
+            .profiles.find((p) => p.id === activeProfileId)?.myCall.toUpperCase().split("-", 1)[0];
           if (myCall) {
             const peer = ev.row.fromCall === myCall ? ev.row.toCall : ev.row.fromCall;
             useChatStore.getState().addPeer(peer);

@@ -11,7 +11,7 @@ export async function registerHistoryRoutes(app: FastifyInstance): Promise<void>
       reply.code(409);
       return { error: "no active connection profile" };
     }
-    return messagesDb.listRecentPeers(profile.myCall.toUpperCase());
+    return messagesDb.listRecentPeers(profile.myCall.toUpperCase().split("-", 1)[0]!);
   });
 
   app.get("/api/messages/:peer", async (req, reply) => {
@@ -21,7 +21,7 @@ export async function registerHistoryRoutes(app: FastifyInstance): Promise<void>
       return { error: "no active connection profile" };
     }
     const peer = (req.params as { peer: string }).peer.toUpperCase();
-    return messagesDb.listMessagesForPeer(profile.myCall.toUpperCase(), peer);
+    return messagesDb.listMessagesForPeer(profile.myCall.toUpperCase().split("-", 1)[0]!, peer);
   });
 
   app.get("/api/posts/:cid", async (req) => {
