@@ -678,11 +678,14 @@ export class WpsClient extends EventEmitter {
       }
       case "he": {
         const arr = (obj.h as Array<{ c: string; n: string; ts: number }>) ?? [];
+        let highestHamTs = 0;
         for (const h of arr) {
           if (!h.c) continue;
           hamsDb.upsertHam(h.c, h.n ?? "", h.ts ?? 0);
           this.emitEvent({ type: "ham", ham: { callsign: h.c.toUpperCase(), name: h.n ?? "", ts: h.ts ?? 0 } });
+          if ((h.ts ?? 0) > highestHamTs) highestHamTs = h.ts ?? 0;
         }
+        if (highestHamTs) metaDb.bumpMeta("last_ham_ts", highestHamTs);
         break;
       }
       case "ar": {
