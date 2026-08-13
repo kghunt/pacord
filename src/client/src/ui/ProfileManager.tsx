@@ -299,76 +299,55 @@ function ProfileForm({ profile, onDone }: { profile: ConnectProfile | null; onDo
 
         {advanced && (
           <>
-            <div className="form-row two-col">
-              <div className="form-row">
-                <label>Link level</label>
-                <select value={axLevel} onChange={(e) => setAxLevel(e.target.value as AxLevel)}>
-                  <option value="L2">L2 — direct AX.25 connection</option>
-                  <option value="L4">L4 — NET-ROM routed connection</option>
-                </select>
-              </div>
-              <div className="form-row">
-                <label>Remote (first AX.25 / NET-ROM destination)</label>
-                <input value={remote} onChange={(e) => setRemote(e.target.value)} />
-              </div>
-            </div>
-            <p className="form-hint">
-              <strong>Remote</strong> is the alias or callsign the app connects to on your node — the WPS
-              application port (e.g. <code>WPS</code> or <code>WHATSPAC</code>). If WPS lives directly on
-              this node you are done. If WPS is on a <em>different</em> node reachable via digipeating or
-              NET/ROM, set Remote to your first hop and add the remaining hops in the connect script below.
-            </p>
-
-            <div className="form-row">
-              <label>Response timeout (seconds)</label>
-              <input
-                type="number"
-                min={1}
-                value={responseTimeoutS}
-                onChange={(e) => setResponseTimeoutS(Number(e.target.value))}
-              />
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                How long to wait for a response at each step before giving up. RF links can take 30–60 s on
-                a busy channel — increase this if you get timeouts.
-              </span>
-            </div>
-
-            <div className="form-row two-col">
-              <div className="form-row">
-                <label>Auth user (optional)</label>
-                <input value={authUser} onChange={(e) => setAuthUser(e.target.value)} />
-              </div>
-              <div className="form-row">
-                <label>Auth password (optional)</label>
-                <input type="password" value={authPass} onChange={(e) => setAuthPass(e.target.value)} />
-              </div>
+            <div className="form-row" style={{ maxWidth: 220 }}>
+              <label>Link level</label>
+              <select value={axLevel} onChange={(e) => setAxLevel(e.target.value as AxLevel)}>
+                <option value="L2">L2 — direct AX.25</option>
+                <option value="L4">L4 — NET-ROM routed</option>
+              </select>
             </div>
 
             <div className="form-row">
-              <label>Connect script — hops after the initial connection</label>
+              <label>Connect sequence</label>
               <p className="form-hint" style={{ marginTop: 0, marginBottom: 8 }}>
-                Only needed when WPS is on a different node. Each row sends a command and waits for the
-                node to reply with the text in the "wait for" column. Do <strong>not</strong> repeat the
-                Remote alias here — it is connected first automatically. Example: connect to your node via
-                Remote <code>GB7XX</code>, then hop onward with <code>C WPS</code>.
+                The app makes these connections in order. Step 0 is always the initial AX.25/NET-ROM
+                connect. Add further hops only if WPS lives on a different node beyond your first hop.
               </p>
+
+              {/* Step 0 — the Remote field, shown as the first row of the sequence */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                <span className="connect-step-label">Step 0</span>
+                <span style={{ fontSize: 13, color: "var(--text-muted)", flexShrink: 0 }}>Connect to</span>
+                <input
+                  style={{ flex: 1, minWidth: 0 }}
+                  placeholder="WPS or WHATSPAC"
+                  value={remote}
+                  onChange={(e) => setRemote(e.target.value)}
+                />
+                <span style={{ fontSize: 13, color: "var(--text-muted)", flexShrink: 0, width: 80 }}>(auto)</span>
+                <div style={{ width: 28, flexShrink: 0 }} />
+              </div>
+
+              {/* Subsequent hop steps */}
               {connectScript.map((step, i) => (
-                <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                  <span className="connect-step-label">Step {i + 1}</span>
                   <input
                     style={{ flex: 1, minWidth: 0 }}
-                    placeholder="command (e.g. C WPSNODE)"
+                    placeholder="command (e.g. C FARNODE)"
                     value={step.cmd}
                     onChange={(e) => updateStep(i, { cmd: e.target.value })}
                   />
                   <input
                     style={{ flex: 1, minWidth: 0 }}
-                    placeholder="wait for text (e.g. Connected)"
+                    placeholder="wait for (e.g. Connected)"
                     value={step.val}
                     onChange={(e) => updateStep(i, { val: e.target.value })}
                   />
                   <button
                     type="button"
                     className="btn small danger"
+                    style={{ flexShrink: 0 }}
                     onClick={() => setConnectScript((s) => s.filter((_, idx) => idx !== i))}
                   >
                     &times;
@@ -382,6 +361,32 @@ function ProfileForm({ profile, onDone }: { profile: ConnectProfile | null; onDo
               >
                 + Add hop
               </button>
+            </div>
+
+            <div className="form-row">
+              <label>Response timeout (seconds)</label>
+              <input
+                type="number"
+                min={1}
+                value={responseTimeoutS}
+                style={{ maxWidth: 100 }}
+                onChange={(e) => setResponseTimeoutS(Number(e.target.value))}
+              />
+              <p className="form-hint" style={{ marginTop: 4 }}>
+                How long to wait for a reply at each step before giving up. RF links can take 30–60 s on a
+                busy channel — increase this if you get timeouts.
+              </p>
+            </div>
+
+            <div className="form-row two-col">
+              <div className="form-row">
+                <label>Auth user (optional)</label>
+                <input value={authUser} onChange={(e) => setAuthUser(e.target.value)} />
+              </div>
+              <div className="form-row">
+                <label>Auth password (optional)</label>
+                <input type="password" value={authPass} onChange={(e) => setAuthPass(e.target.value)} />
+              </div>
             </div>
           </>
         )}

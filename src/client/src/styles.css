@@ -785,6 +785,16 @@ select {
   border-radius: 3px;
 }
 
+.connect-step-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  width: 46px;
+}
+
 .advanced-toggle {
   background: transparent;
   border: none;
