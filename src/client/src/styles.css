@@ -514,6 +514,38 @@ select {
   overflow: hidden;
 }
 
+.mention-list {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.mention-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.mention-item:hover,
+.mention-item.active {
+  background: var(--bg-modifier-hover);
+}
+
+.mention-call {
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.mention-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .composer button.send {
   background: transparent;
   border: none;

@@ -4,7 +4,7 @@ import { useChatStore } from "../state/chatStore";
 import { useConnectionStore, displayNameFor } from "../state/connectionStore";
 import { sendAction } from "../api/socket";
 import { MessageItem, type DisplayItem } from "./MessageItem";
-import { Composer } from "./Composer";
+import { Composer, type MentionCandidate } from "./Composer";
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
@@ -12,9 +12,23 @@ type ReplyState = { label: string; target: { msgId?: string; postTs?: number; fr
 type EditState = { text: string; target: { msgId?: string; postTs?: number } } | null;
 
 export function ChatPane() {
-  const { activeTarget, setActiveTarget, channels, messagesByPeer, postsByChannel } = useChatStore();
+  const { activeTarget, setActiveTarget, channels, messagesByPeer, postsByChannel, peers } = useChatStore();
   const { connectionState, profiles } = useConnectionStore();
   const myCall = profiles.find((p) => p.id === connectionState.activeProfileId)?.myCall.toUpperCase() ?? null;
+
+  const mentions = useMemo<MentionCandidate[]>(() => {
+    const seen = new Set<string>();
+    const out: MentionCandidate[] = [];
+    const add = (call: string) => {
+      if (seen.has(call)) return;
+      seen.add(call);
+      const label = displayNameFor(call);
+      out.push({ call, label });
+    };
+    for (const c of connectionState.onlineUsers) add(c);
+    for (const p of peers) add(p);
+    return out;
+  }, [connectionState.onlineUsers, peers]);
 
   const [reply, setReply] = useState<ReplyState>(null);
   const [edit, setEdit] = useState<EditState>(null);
@@ -121,12 +135,14 @@ export function ChatPane() {
     if (activeTarget.type === "dm") {
       sendAction({ type: "send_message", toCall: activeTarget.peer, text, replyId: reply?.target.msgId });
     } else {
+      const atCalls = [...text.matchAll(/@([A-Z0-9]+-?[A-Z0-9]*)/gi)].map((m) => m[1]!.toUpperCase());
       sendAction({
         type: "post",
         cid: activeTarget.cid,
         text,
         replyTs: reply?.target.postTs,
         replyFrom: reply?.target.fromCall,
+        atCalls: atCalls.length > 0 ? atCalls : undefined,
       });
     }
     setReply(null);
@@ -224,12 +240,13 @@ export function ChatPane() {
         ))}
       </div>
       <Composer
-        placeholder={activeTarget.type === "dm" ? `Message ${title}` : `Message ${title}`}
+        placeholder={`Message ${title}`}
         replyLabel={reply?.label ?? null}
         onCancelReply={() => setReply(null)}
         editingText={edit?.text ?? null}
         onCancelEdit={() => setEdit(null)}
         onSubmit={handleSubmit}
+        mentions={mentions}
       />
     </div>
   );
