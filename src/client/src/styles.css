@@ -345,6 +345,17 @@ select {
   margin-left: 4px;
 }
 
+.delivery-tick {
+  font-size: 11px;
+  margin-left: 4px;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.delivery-tick.delivered {
+  opacity: 1;
+}
+
 .reply-quote {
   display: flex;
   align-items: center;
@@ -622,6 +633,35 @@ select {
 .online-user .call {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.online-user.offline {
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.online-user.offline:hover {
+  opacity: 0.85;
+}
+
+.presence-dot.offline {
+  background: var(--text-muted);
+}
+
+.online-user .last-seen {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.offline-toggle {
+  cursor: pointer;
+  user-select: none;
+  margin-top: 8px;
+}
+
+.offline-toggle:hover {
+  color: var(--text-normal);
 }
 
 /* ---------------- Modal / profile manager ---------------- */

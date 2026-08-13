@@ -16,6 +16,7 @@ export interface DisplayItem {
   replyPreview: { fromCall: string; body: string } | null;
   isMine: boolean;
   grouped: boolean;
+  deliveredTs: number | null;
 }
 
 export function MessageItem({
@@ -65,6 +66,14 @@ export function MessageItem({
         <div className="message-body">
           {item.body}
           {item.editTs && <span className="message-edited">(edited)</span>}
+          {item.isMine && (
+            <span
+              className={`delivery-tick${item.deliveredTs !== null ? " delivered" : ""}`}
+              title={item.deliveredTs !== null ? "Delivered to WPS" : "Sending…"}
+            >
+              {item.deliveredTs !== null ? "✓" : "○"}
+            </span>
+          )}
         </div>
         {reactionGroups.size > 0 && (
           <div className="reactions-row">

@@ -269,6 +269,7 @@ function toDisplayFromMessage(
     replyPreview: replySource ? { fromCall: replySource.fromCall, body: replySource.body } : null,
     isMine: myCall !== null && m.fromCall === myCall,
     grouped,
+    deliveredTs: m.deliveredTs ?? null,
   };
 }
 
@@ -293,5 +294,6 @@ function toDisplayFromPost(
         : null,
     isMine: myCall !== null && p.fromCall === myCall,
     grouped,
+    deliveredTs: p.deliveredTs ?? null,
   };
 }
