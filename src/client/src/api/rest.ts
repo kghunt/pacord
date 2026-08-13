@@ -83,6 +83,11 @@ export const fetchPosts = (cid: number) => fetch(`/api/posts/${cid}`).then((r) =
 
 export const fetchRoster = () => fetch("/api/roster").then((r) => json<{ online: string[]; hams: HamInfo[] }>(r));
 
+export const fetchVersion = () =>
+  fetch("/api/version").then((r) =>
+    json<{ version: string; latest: string | null; updateAvailable: boolean }>(r)
+  );
+
 export const uploadAvatar = (imageBase64: string) =>
   fetch("/api/avatar/upload", {
     method: "POST",

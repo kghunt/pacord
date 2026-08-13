@@ -27,6 +27,11 @@ body,
   margin: 0;
 }
 
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
 body {
   font-family: "gg sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg-tertiary);
@@ -44,9 +49,41 @@ select {
   font-family: inherit;
 }
 
+.update-banner {
+  background: var(--warning);
+  color: #1a1a1a;
+  font-size: 13px;
+  padding: 7px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.update-banner code {
+  background: rgba(0,0,0,0.15);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.update-banner button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+  color: inherit;
+  margin-left: 4px;
+}
+
 .app-shell {
   display: flex;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   width: 100vw;
   overflow: hidden;
 }

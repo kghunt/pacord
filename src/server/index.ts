@@ -10,6 +10,7 @@ import { registerChannelRoutes } from "./routes/channels.js";
 import { registerConnectionRoutes } from "./routes/connection.js";
 import { registerHistoryRoutes } from "./routes/history.js";
 import { registerAvatarRoutes } from "./routes/avatars.js";
+import { registerVersionRoute } from "./routes/version.js";
 import { attachClient } from "./wsHub.js";
 import { autoConnectOnStartup } from "./connectionManager.js";
 
@@ -34,6 +35,7 @@ await registerChannelRoutes(app);
 await registerConnectionRoutes(app);
 await registerHistoryRoutes(app);
 await registerAvatarRoutes(app);
+await registerVersionRoute(app);
 
 app.register(async (instance) => {
   instance.get("/ws", { websocket: true }, (socket) => {
