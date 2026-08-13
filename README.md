@@ -8,6 +8,21 @@ This is **not** WhatsApp. WhatsPac is a text chat service for the amateur packet
 
 Pre-built images for x86-64, Raspberry Pi 4/5 (arm64), and Pi 3 (armv7) are published automatically on every push to `main`.
 
+### 1. Install Docker
+
+**Raspberry Pi / Debian / Ubuntu:**
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER   # lets you run docker without sudo (re-login after)
+```
+
+**Other platforms:** see [docs.docker.com/get-docker](https://docs.docker.com/get-docker/).
+
+Docker Compose is included with Docker Desktop on Mac/Windows. On Linux the script above installs the `docker compose` plugin automatically.
+
+### 2. Run Pacord
+
 ```bash
 curl -O https://raw.githubusercontent.com/kghunt/pacord/main/docker-compose.yml
 sudo docker compose up -d
