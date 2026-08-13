@@ -675,7 +675,7 @@ select {
   color: var(--text-muted);
 }
 
-.form-row input,
+.form-row input:not([type="checkbox"]),
 .form-row select {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
@@ -685,6 +685,10 @@ select {
   font-size: 14px;
   width: 100%;
   min-width: 0;
+}
+
+.form-row.two-col > .form-row {
+  justify-content: space-between;
 }
 
 .form-actions {
