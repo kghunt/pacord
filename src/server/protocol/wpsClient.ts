@@ -467,34 +467,40 @@ export class WpsClient extends EventEmitter {
       }
       case "m": {
         const fromCall = String(obj.fc ?? "").toUpperCase();
+        const ts = Number(obj.ts ?? 0);
         const row = messagesDb.upsertMessage({
-          msgId: String(obj._id ?? `${obj.ts}-${fromCall}`),
+          msgId: String(obj._id ?? `${ts}-${fromCall}`),
           fromCall,
           toCall: String(obj.tc ?? "").toUpperCase(),
           body: String(obj.m ?? ""),
-          ts: Number(obj.ts ?? 0),
+          ts,
           replyId: (obj.r as string | undefined) ?? null,
-          deliveredTs: fromCall === myCall ? this.selfDeliveredTs(obj.ts) : null,
+          deliveredTs: fromCall === myCall ? this.selfDeliveredTs(ts) : null,
           receivedTs: fromCall === myCall ? null : this.nowMs(),
         });
+        metaDb.bumpMeta("last_message", ts);
         this.emitEvent({ type: "message", row });
         break;
       }
       case "mb": {
         const arr = (obj.m as Array<Record<string, unknown>>) ?? [];
+        let highestTs = 0;
         const rows = arr.map((m) => {
           const fromCall = String(m.fc ?? "").toUpperCase();
+          const ts = Number(m.ts ?? 0);
+          if (ts > highestTs) highestTs = ts;
           return messagesDb.upsertMessage({
-            msgId: String(m._id ?? `${m.ts}-${fromCall}`),
+            msgId: String(m._id ?? `${ts}-${fromCall}`),
             fromCall,
             toCall: String(m.tc ?? "").toUpperCase(),
             body: String(m.m ?? ""),
-            ts: Number(m.ts ?? 0),
+            ts,
             replyId: (m.r as string | undefined) ?? null,
-            deliveredTs: fromCall === myCall ? this.selfDeliveredTs(m.ts) : null,
+            deliveredTs: fromCall === myCall ? this.selfDeliveredTs(ts) : null,
             receivedTs: fromCall === myCall ? null : this.nowMs(),
           });
         });
+        if (highestTs) metaDb.bumpMeta("last_message", highestTs);
         if (rows.length) this.emitEvent({ type: "message_batch", rows });
         break;
       }
