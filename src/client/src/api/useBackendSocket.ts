@@ -22,6 +22,12 @@ export function useBackendSocket(): void {
           if (myCall) {
             const peer = ev.row.fromCall === myCall ? ev.row.toCall : ev.row.fromCall;
             useChatStore.getState().addPeer(peer);
+            if (ev.row.fromCall !== myCall) {
+              const { activeTarget } = useChatStore.getState();
+              if (!(activeTarget?.type === "dm" && activeTarget.peer === peer)) {
+                useChatStore.getState().incrementUnread(peer);
+              }
+            }
           }
           break;
         }
@@ -30,6 +36,18 @@ export function useBackendSocket(): void {
           break;
         case "post":
           useChatStore.getState().upsertPost(ev.row);
+          {
+            const { activeProfileId } = useConnectionStore.getState().connectionState;
+            const myCall = useConnectionStore
+              .getState()
+              .profiles.find((p) => p.id === activeProfileId)?.myCall.toUpperCase().split("-", 1)[0];
+            if (!myCall || ev.row.fromCall !== myCall) {
+              const { activeTarget } = useChatStore.getState();
+              if (!(activeTarget?.type === "channel" && activeTarget.cid === ev.row.cid)) {
+                useChatStore.getState().incrementUnread(`channel:${ev.row.cid}`);
+              }
+            }
+          }
           break;
         case "post_batch":
           useChatStore.getState().upsertPostBatch(ev.cid, ev.rows);

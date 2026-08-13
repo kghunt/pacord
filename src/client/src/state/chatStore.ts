@@ -22,6 +22,7 @@ interface ChatStore {
   messagesByPeer: Record<string, MessageRow[]>;
   postsByChannel: Record<number, PostRow[]>;
   activeTarget: ChatTarget;
+  unreadCounts: Record<string, number>;
 
   setActiveTarget: (t: ChatTarget) => void;
   loadChannels: () => Promise<void>;
@@ -34,6 +35,7 @@ interface ChatStore {
   upsertMessageBatch: (rows: MessageRow[]) => void;
   upsertPost: (row: PostRow) => void;
   upsertPostBatch: (cid: number, rows: PostRow[]) => void;
+  incrementUnread: (key: string) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -42,8 +44,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messagesByPeer: {},
   postsByChannel: {},
   activeTarget: null,
+  unreadCounts: {},
 
-  setActiveTarget: (t) => set({ activeTarget: t }),
+  setActiveTarget: (t) => {
+    const key = t?.type === "dm" ? t.peer : t?.type === "channel" ? `channel:${t.cid}` : null;
+    set((s) => ({
+      activeTarget: t,
+      unreadCounts: key ? { ...s.unreadCounts, [key]: 0 } : s.unreadCounts,
+    }));
+  },
 
   loadChannels: async () => {
     const channels = await api.fetchChannels();
@@ -98,4 +107,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((s) => ({
       postsByChannel: { ...s.postsByChannel, [cid]: mergePosts(s.postsByChannel[cid] ?? [], rows) },
     })),
+
+  incrementUnread: (key) =>
+    set((s) => ({ unreadCounts: { ...s.unreadCounts, [key]: (s.unreadCounts[key] ?? 0) + 1 } })),
 }));

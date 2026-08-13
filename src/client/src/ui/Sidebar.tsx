@@ -11,7 +11,7 @@ export function Sidebar({
   onOpenAvatars: () => void;
 }) {
   const { connectionState, profiles } = useConnectionStore();
-  const { channels, peers, activeTarget, setActiveTarget, loadMessages, loadPosts } = useChatStore();
+  const { channels, peers, activeTarget, setActiveTarget, loadMessages, loadPosts, unreadCounts } = useChatStore();
 
   const activeProfile = profiles.find((p) => p.id === connectionState.activeProfileId);
 
@@ -43,25 +43,30 @@ export function Sidebar({
       <div className="sidebar-scroll">
         <div className="sidebar-section">
           <div className="sidebar-section-title">Channels</div>
-          {channels.map((ch) => (
-            <div
-              key={ch.cid}
-              className={`sidebar-item ${activeTarget?.type === "channel" && activeTarget.cid === ch.cid ? "active" : ""}`}
-              onClick={() => openChannel(ch.cid)}
-              title={ch.description}
-            >
-              <span className="hash">#</span>
-              {ch.name || `channel-${ch.cid}`}
-              {ch.subscribed && (
-                <span
-                  title="Subscribed — receiving live updates"
-                  style={{ marginLeft: "auto", color: "var(--online)", fontSize: 10 }}
-                >
-                  ●
-                </span>
-              )}
-            </div>
-          ))}
+          {channels.map((ch) => {
+            const unread = unreadCounts[`channel:${ch.cid}`] ?? 0;
+            return (
+              <div
+                key={ch.cid}
+                className={`sidebar-item ${activeTarget?.type === "channel" && activeTarget.cid === ch.cid ? "active" : ""} ${unread > 0 ? "has-unread" : ""}`}
+                onClick={() => openChannel(ch.cid)}
+                title={ch.description}
+              >
+                <span className="hash">#</span>
+                {ch.name || `channel-${ch.cid}`}
+                {unread > 0
+                  ? <span className="unread-badge">{unread > 99 ? "99+" : unread}</span>
+                  : ch.subscribed && (
+                    <span
+                      title="Subscribed — receiving live updates"
+                      style={{ marginLeft: "auto", color: "var(--online)", fontSize: 10 }}
+                    >
+                      ●
+                    </span>
+                  )}
+              </div>
+            );
+          })}
         </div>
 
         <div className="sidebar-section">
@@ -71,25 +76,29 @@ export function Sidebar({
               No conversations yet.
             </div>
           )}
-          {peers.map((peer) => (
-            <div
-              key={peer}
-              className={`sidebar-item ${activeTarget?.type === "dm" && activeTarget.peer === peer ? "active" : ""}`}
-              onClick={() => openDm(peer)}
-            >
-              <span
-                className="presence-dot"
-                style={{
-                  position: "static",
-                  border: "none",
-                  background: connectionState.onlineUsers.includes(peer) ? "var(--online)" : "var(--text-muted)",
-                  width: 8,
-                  height: 8,
-                }}
-              />
-              {displayNameFor(peer)}
-            </div>
-          ))}
+          {peers.map((peer) => {
+            const unread = unreadCounts[peer] ?? 0;
+            return (
+              <div
+                key={peer}
+                className={`sidebar-item ${activeTarget?.type === "dm" && activeTarget.peer === peer ? "active" : ""} ${unread > 0 ? "has-unread" : ""}`}
+                onClick={() => openDm(peer)}
+              >
+                <span
+                  className="presence-dot"
+                  style={{
+                    position: "static",
+                    border: "none",
+                    background: connectionState.onlineUsers.includes(peer) ? "var(--online)" : "var(--text-muted)",
+                    width: 8,
+                    height: 8,
+                  }}
+                />
+                {displayNameFor(peer)}
+                {unread > 0 && <span className="unread-badge">{unread > 99 ? "99+" : unread}</span>}
+              </div>
+            );
+          })}
         </div>
       </div>
 
