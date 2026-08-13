@@ -12,7 +12,7 @@ type ReplyState = { label: string; target: { msgId?: string; postTs?: number; fr
 type EditState = { text: string; target: { msgId?: string; postTs?: number } } | null;
 
 export function ChatPane() {
-  const { activeTarget, channels, messagesByPeer, postsByChannel } = useChatStore();
+  const { activeTarget, setActiveTarget, channels, messagesByPeer, postsByChannel } = useChatStore();
   const { connectionState, profiles } = useConnectionStore();
   const myCall = profiles.find((p) => p.id === connectionState.activeProfileId)?.myCall.toUpperCase() ?? null;
 
@@ -154,6 +154,9 @@ export function ChatPane() {
   return (
     <div className="chat-pane">
       <div className="chat-header">
+        <button className="mobile-back-btn icon-button" onClick={() => setActiveTarget(null)} title="Back">
+          ‹
+        </button>
         <span>{title}</span>
         {subtitle && <span className="subtitle">{subtitle}</span>}
         {activeTarget.type === "channel" && (
@@ -175,26 +178,28 @@ export function ChatPane() {
             >
               {activeChannel?.subscribed ? "Subscribed" : "Subscribe"}
             </button>
-            <input
-              type="number"
-              min={1}
-              max={1000}
-              value={historyCount}
-              onChange={(e) => setHistoryCount(Number(e.target.value))}
-              style={{ width: 60, background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-normal)", padding: "4px 6px" }}
-              title="Number of historic messages to fetch"
-              disabled={!activeChannel?.subscribed}
-            />
-            <button
-              className="btn small"
-              disabled={!activeChannel?.subscribed}
-              title={activeChannel?.subscribed ? undefined : "Subscribe first to fetch history"}
-              onClick={() =>
-                sendAction({ type: "request_post_batch", cid: activeTarget.cid, count: historyCount })
-              }
-            >
-              Load history
-            </button>
+            <div className="history-load-controls">
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={historyCount}
+                onChange={(e) => setHistoryCount(Number(e.target.value))}
+                style={{ width: 60, background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-normal)", padding: "4px 6px" }}
+                title="Number of historic messages to fetch"
+                disabled={!activeChannel?.subscribed}
+              />
+              <button
+                className="btn small"
+                disabled={!activeChannel?.subscribed}
+                title={activeChannel?.subscribed ? undefined : "Subscribe first to fetch history"}
+                onClick={() =>
+                  sendAction({ type: "request_post_batch", cid: activeTarget.cid, count: historyCount })
+                }
+              >
+                Load history
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -723,3 +723,105 @@ select {
   border-radius: 6px;
   background: #000;
 }
+
+/* ---------------- Mobile back button (hidden on desktop) ---------------- */
+
+.mobile-back-btn {
+  display: none;
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.history-load-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------------- Mobile layout ---------------- */
+
+@media (max-width: 640px) {
+  /* Sidebar becomes a full-screen panel; slides away when a chat is open */
+  .sidebar {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    z-index: 50;
+  }
+
+  .mobile-chat-active .sidebar {
+    display: none;
+  }
+
+  /* Chat pane fills the screen; online users pane is hidden */
+  .online-pane {
+    display: none;
+  }
+
+  /* Reveal the back button */
+  .mobile-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Hide history load controls — subscribe button stays */
+  .history-load-controls {
+    display: none;
+  }
+
+  /* Larger touch targets for sidebar items */
+  .sidebar-item {
+    padding: 10px 8px;
+    font-size: 15px;
+  }
+
+  .sidebar-section-title {
+    font-size: 12px;
+    padding: 12px 8px 6px;
+  }
+
+  /* Compact chat header */
+  .chat-header {
+    height: auto;
+    min-height: 48px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chat-header .subtitle {
+    flex-basis: 100%;
+    border-left: none;
+    padding-left: 0;
+    margin-left: 0;
+    font-size: 12px;
+    padding-top: 0;
+  }
+
+  /* Pull compose area above iOS home indicator */
+  .composer-wrap {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+
+  /* Pull sidebar footer above iOS home indicator */
+  .sidebar-footer {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  /* Modal fills the screen on mobile */
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    min-height: 100vh;
+  }
+
+  .modal-overlay {
+    align-items: flex-start;
+  }
+}
