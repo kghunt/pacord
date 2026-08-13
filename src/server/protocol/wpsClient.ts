@@ -97,6 +97,13 @@ export class WpsClient extends EventEmitter {
     }
     if (this.stream) {
       try {
+        // Tell WPS we're leaving cleanly so it marks us offline immediately
+        // rather than waiting for the keepalive timeout to expire.
+        await this.stream.send(codec.encode({ t: "cd" }));
+      } catch {
+        // best-effort — stream may already be dead
+      }
+      try {
         await this.stream.close();
       } catch {
         // best-effort
