@@ -795,6 +795,19 @@ select {
   width: 46px;
 }
 
+.drag-handle {
+  color: var(--text-muted);
+  font-size: 16px;
+  flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+  padding: 0 2px;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
 .advanced-toggle {
   background: transparent;
   border: none;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AxLevel, ConnectProfile, Engine, HopStep, NewConnectProfile, Transport } from "@shared/types";
 import { defaultPort, defaultRadioPort, defaultRemote } from "@shared/engineDefaults";
 import { useConnectionStore } from "../state/connectionStore";
@@ -153,6 +153,7 @@ function ProfileForm({ profile, onDone }: { profile: ConnectProfile | null; onDo
   const [advanced, setAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const dragIndex = useRef<number | null>(null);
 
   function onEngineChange(next: Engine) {
     setEngine(next);
@@ -330,7 +331,25 @@ function ProfileForm({ profile, onDone }: { profile: ConnectProfile | null; onDo
 
               {/* Subsequent hop steps */}
               {connectScript.map((step, i) => (
-                <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                <div
+                  key={i}
+                  draggable
+                  onDragStart={() => { dragIndex.current = i; }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (dragIndex.current === null || dragIndex.current === i) return;
+                    setConnectScript((s) => {
+                      const next = [...s];
+                      const [moved] = next.splice(dragIndex.current!, 1);
+                      next.splice(i, 0, moved!);
+                      dragIndex.current = i;
+                      return next;
+                    });
+                  }}
+                  onDragEnd={() => { dragIndex.current = null; }}
+                  style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center", cursor: "grab" }}
+                >
+                  <span className="drag-handle" title="Drag to reorder">⠿</span>
                   <span className="connect-step-label">Step {i + 1}</span>
                   <input
                     style={{ flex: 1, minWidth: 0 }}
