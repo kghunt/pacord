@@ -18,6 +18,12 @@ export function Shell() {
   const profiles = useConnectionStore((s) => s.profiles);
   const profilesLoaded = useConnectionStore((s) => s.profilesLoaded);
   const activeTarget = useChatStore((s) => s.activeTarget);
+  const unreadCounts = useChatStore((s) => s.unreadCounts);
+
+  useEffect(() => {
+    const total = Object.values(unreadCounts).reduce((sum, n) => sum + n, 0);
+    document.title = total > 0 ? `(${total > 99 ? "99+" : total}) Pacord` : "Pacord";
+  }, [unreadCounts]);
 
   useEffect(() => {
     if (profilesLoaded && profiles.length === 0) setSettingsOpen(true);
