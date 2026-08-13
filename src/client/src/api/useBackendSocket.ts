@@ -3,6 +3,34 @@ import { connectSocket, onServerEvent } from "./socket";
 import { useConnectionStore, displayNameFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
 
+let audioCtx: AudioContext | null = null;
+
+function ping() {
+  try {
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const ctx = audioCtx;
+    const t = ctx.currentTime;
+    // Two-note chime: A5 (880 Hz) then C#6 (1109 Hz)
+    for (const [i, freq] of [[0, 880], [1, 1109]] as const) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = t + i * 0.13;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.linearRampToValueAtTime(0.22, start + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.38);
+      osc.start(start);
+      osc.stop(start + 0.4);
+    }
+  } catch {
+    // AudioContext unavailable or blocked
+  }
+}
+
 function notify(title: string, body: string) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   if (!document.hidden) return;
@@ -36,6 +64,7 @@ export function useBackendSocket(): void {
               const { activeTarget } = useChatStore.getState();
               if (!(activeTarget?.type === "dm" && activeTarget.peer === peer)) {
                 useChatStore.getState().incrementUnread(peer);
+                ping();
                 notify(displayNameFor(peer), ev.row.body);
               }
             }
@@ -56,6 +85,7 @@ export function useBackendSocket(): void {
               const { activeTarget } = useChatStore.getState();
               if (!(activeTarget?.type === "channel" && activeTarget.cid === ev.row.cid)) {
                 useChatStore.getState().incrementUnread(`channel:${ev.row.cid}`);
+                ping();
                 const ch = useChatStore.getState().channels.find((c) => c.cid === ev.row.cid);
                 notify(`#${ch?.name ?? ev.row.cid}`, `${displayNameFor(ev.row.fromCall)}: ${ev.row.body}`);
               }
