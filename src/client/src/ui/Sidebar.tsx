@@ -135,40 +135,38 @@ export function Sidebar({
         <div className="status-pill">
           <span className={`status-dot ${connectionState.status}`} />
           {activeProfile ? activeProfile.myCall : "Not connected"}
+          {version && <span style={{ marginLeft: "auto", fontSize: 10 }}>v{version}</span>}
         </div>
-        <button className="icon-button" title="Search messages (Ctrl+K)" onClick={onOpenSearch}>
-          🔍
-        </button>
-        <button className="icon-button" title="Avatars" onClick={onOpenAvatars}>
-          🖼
-        </button>
-        <button
-          className="icon-button"
-          style={{ color: notifPerm === "granted" ? "var(--online)" : notifPerm === "denied" ? "var(--danger)" : undefined }}
-          title={
-            notifPerm === "granted" ? "Notifications enabled" :
-            notifPerm === "denied" ? "Notifications blocked — enable in browser settings" :
-            "Enable notifications"
-          }
-          onClick={requestNotifications}
-        >
-          {notifPerm === "denied" ? "🔕" : "🔔"}
-        </button>
-        <button className="icon-button" title="Node terminal" onClick={onOpenTerminal}>
-          ⌨
-        </button>
-        <button className="icon-button" title="WPS frame log" onClick={onOpenDebug}>
-          🐛
-        </button>
-        <button className="icon-button" title="Connection profiles" onClick={onOpenSettings}>
-          ⚙
-        </button>
+        <div className="sidebar-footer-icons">
+          <button className="icon-button" title="Search messages (Ctrl+K)" onClick={onOpenSearch}>
+            🔍
+          </button>
+          <button className="icon-button" title="Avatars" onClick={onOpenAvatars}>
+            🖼
+          </button>
+          <button
+            className="icon-button"
+            style={{ color: notifPerm === "granted" ? "var(--online)" : notifPerm === "denied" ? "var(--danger)" : undefined }}
+            title={
+              notifPerm === "granted" ? "Notifications enabled" :
+              notifPerm === "denied" ? "Notifications blocked — enable in browser settings" :
+              "Enable notifications"
+            }
+            onClick={requestNotifications}
+          >
+            {notifPerm === "denied" ? "🔕" : "🔔"}
+          </button>
+          <button className="icon-button" title="Node terminal" onClick={onOpenTerminal}>
+            ⌨
+          </button>
+          <button className="icon-button" title="WPS frame log" onClick={onOpenDebug}>
+            🐛
+          </button>
+          <button className="icon-button" title="Connection profiles" onClick={onOpenSettings}>
+            ⚙
+          </button>
+        </div>
       </div>
-      {version && (
-        <div style={{ textAlign: "center", fontSize: 10, color: "var(--text-muted)", padding: "2px 0 4px" }}>
-          v{version}
-        </div>
-      )}
     </div>
   );
 }
