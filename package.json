@@ -1,6 +1,6 @@
 {
   "name": "pacord",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "Discord-inspired client for WhatsPac (WPS) chat over an XRouter node",
   "private": true,
   "type": "module",

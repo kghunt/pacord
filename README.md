@@ -4,6 +4,8 @@ A Discord-inspired chat client for **WhatsPac** (WPS), the packet-radio chat ser
 
 This is **not** WhatsApp. WhatsPac is a text chat service for the amateur packet-radio network (channels + DMs, like Discord/IRC), published from an XRouter/BPQ node and reachable over AX.25/NET-ROM.
 
+![Pacord screenshot](Pacord.png)
+
 ## Quick start (Docker)
 
 Pre-built images for x86-64, Raspberry Pi 4/5 (arm64), and Pi 3 (armv7) are published automatically on every push to `main`.
