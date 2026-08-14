@@ -84,7 +84,7 @@ export function MessageItem({
                   key={emoji}
                   className={`reaction-chip ${mine ? "mine" : ""}`}
                   onClick={() => onReact(emoji, !mine)}
-                  title={entries.map((e) => e.callsign).join(", ")}
+                  title={entries.map((e) => fullDisplayFor(e.callsign)).join(", ")}
                 >
                   <span>{wireToEmoji(emoji)}</span>
                   <span>{entries.length}</span>
