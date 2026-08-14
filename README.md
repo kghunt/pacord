@@ -35,7 +35,7 @@ Your connection profiles and chat history are stored in the `pacord-data` Docker
 **To update:**
 
 ```bash
-sudo docker compose pull && sudo docker compose up -d
+sudo docker compose pull && sudo docker compose up -d --pull always
 ```
 
 ---
