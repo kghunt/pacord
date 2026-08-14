@@ -352,9 +352,15 @@ select {
 
 .message-row.mention {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-left: 3px solid var(--accent);
-  padding-left: 9px;
-  margin-left: -12px;
+}
+.message-row.mention::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
 }
 
 .delivery-tick {

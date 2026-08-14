@@ -301,7 +301,7 @@ function toDisplayFromMessage(
     replyPreview: replySource ? { fromCall: replySource.fromCall, body: replySource.body } : null,
     replyKey: replySource ? replySource.msgId : null,
     isMine,
-    isMention: !isMine && myCall !== null,
+    isMention: false, // DMs don't use @mentions; every incoming message is already directed at you
     grouped,
     deliveredTs: m.deliveredTs ?? null,
   };
