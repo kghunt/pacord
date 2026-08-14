@@ -991,6 +991,128 @@ select {
   width: 46px;
 }
 
+/* ---------------- Search modal ---------------- */
+
+.search-modal {
+  width: min(680px, 96vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--text-normal);
+}
+
+.search-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.search-results {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.search-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.search-error {
+  color: var(--danger);
+}
+
+.search-result {
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-result:last-child {
+  border-bottom: none;
+}
+
+.search-result.selected,
+.search-result:hover {
+  background: var(--surface);
+}
+
+.search-result-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.search-result-where {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.search-result-from {
+  flex: 1;
+}
+
+.search-result-ts {
+  white-space: nowrap;
+}
+
+.search-result-body {
+  font-size: 13px;
+  color: var(--text-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 3.6em;
+  overflow: hidden;
+}
+
+.search-highlight {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text-normal);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.search-footer {
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
 /* ---------------- Debug terminal ---------------- */
 
 .debug-modal {

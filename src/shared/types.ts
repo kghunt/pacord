@@ -136,6 +136,23 @@ export type ServerEvent =
   | { type: "debug_frame"; direction: "in" | "out"; frame: string; tsMs: number };
 
 // ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+export interface SearchResult {
+  kind: "dm" | "channel";
+  fromCall: string;
+  body: string;
+  tsMs: number;
+  // DM-specific
+  peer?: string;
+  msgId?: string;
+  // Channel-specific
+  cid?: number;
+  postTs?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Frontend -> backend actions (sent over /ws)
 // ---------------------------------------------------------------------------
 

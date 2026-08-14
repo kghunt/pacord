@@ -7,6 +7,7 @@ import { TerminalPanel } from "./TerminalPanel";
 import { AvatarManager } from "./AvatarManager";
 import { DebugTerminal } from "./DebugTerminal";
 import { NodeInfo } from "./NodeInfo";
+import { SearchModal } from "./SearchModal";
 import { useConnectionStore } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
 import { fetchSettings, fetchVersion } from "../api/rest";
@@ -18,6 +19,7 @@ export function Shell() {
   const [avatarsOpen, setAvatarsOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [nodeInfoOpen, setNodeInfoOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; version: string } | null>(null);
   const [avatarCheckIntervalMinutes, setAvatarCheckIntervalMinutes] = useState(0);
@@ -32,11 +34,24 @@ export function Shell() {
   const setWelcomeReceived = useConnectionStore((s) => s.setWelcomeReceived);
   const activeTarget = useChatStore((s) => s.activeTarget);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
+  const channels = useChatStore((s) => s.channels);
+  const channelNames = Object.fromEntries(channels.map((c) => [c.cid, c.name]));
 
   useEffect(() => {
     const total = Object.values(unreadCounts).reduce((sum, n) => sum + n, 0);
     document.title = total > 0 ? `(${total > 99 ? "99+" : total}) Pacord` : "Pacord";
   }, [unreadCounts]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     if (profilesLoaded && profiles.length === 0) setSettingsOpen(true);
@@ -113,6 +128,7 @@ export function Shell() {
         onOpenAvatars={() => setAvatarsOpen(true)}
         onOpenDebug={() => setDebugOpen(true)}
         onOpenNodeInfo={() => setNodeInfoOpen(true)}
+        onOpenSearch={() => setSearchOpen(true)}
       />
       <ChatPane />
       <OnlineUsersPane />
@@ -121,6 +137,7 @@ export function Shell() {
       {avatarsOpen && <AvatarManager onClose={() => setAvatarsOpen(false)} />}
       {debugOpen && <DebugTerminal onClose={() => setDebugOpen(false)} />}
       {nodeInfoOpen && <NodeInfo onClose={() => setNodeInfoOpen(false)} />}
+      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} channelNames={channelNames} />}
     </div>
     </>
   );

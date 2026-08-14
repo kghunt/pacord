@@ -32,6 +32,9 @@ export function ChatPane() {
     return out;
   }, [connectionState.onlineUsers, peers]);
 
+  const jumpToKey = useChatStore((s) => s.jumpToKey);
+  const setJumpToKey = useChatStore((s) => s.setJumpToKey);
+
   const [reply, setReply] = useState<ReplyState>(null);
   const [edit, setEdit] = useState<EditState>(null);
   const [historyCount, setHistoryCount] = useState(50);
@@ -89,6 +92,23 @@ export function ChatPane() {
       return toDisplayFromPost(p, rows[i - 1], myCall, source ?? null);
     });
   }, [activeTarget, messagesByPeer, postsByChannel, myCall]);
+
+  // Scroll to a specific message key once it appears in the rendered list.
+  // Used both for reply-quote clicks and search-result navigation.
+  useEffect(() => {
+    if (!jumpToKey) return;
+    if (!items.some((item) => item.key === jumpToKey)) return;
+    const raf = requestAnimationFrame(() => {
+      const el = messageListRef.current?.querySelector(`[data-msg-key="${CSS.escape(jumpToKey)}"]`);
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        el.classList.add("jump-highlight");
+        el.addEventListener("animationend", () => el.classList.remove("jump-highlight"), { once: true });
+      }
+      setJumpToKey(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [jumpToKey, items, setJumpToKey]);
 
   function handleJumpToReply(key: string) {
     const el = messageListRef.current?.querySelector(`[data-msg-key="${CSS.escape(key)}"]`);

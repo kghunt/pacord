@@ -7,6 +7,7 @@ import type {
   MessageRow,
   NewConnectProfile,
   PostRow,
+  SearchResult,
 } from "@shared/types";
 
 async function json<T>(res: Response): Promise<T> {
@@ -105,6 +106,9 @@ export const fetchNodeProxy = (path: string) =>
 
 export const fetchNodeCmd = (cmd: string) =>
   fetch(`/api/node-cmd?cmd=${encodeURIComponent(cmd)}`).then((r) => json<{ text: string; cmd: string }>(r));
+
+export const searchHistory = (q: string) =>
+  fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => json<SearchResult[]>(r));
 
 export const uploadAvatar = (imageBase64: string) =>
   fetch("/api/avatar/upload", {

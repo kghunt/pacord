@@ -23,8 +23,10 @@ interface ChatStore {
   postsByChannel: Record<number, PostRow[]>;
   activeTarget: ChatTarget;
   unreadCounts: Record<string, number>;
+  jumpToKey: string | null;
 
   setActiveTarget: (t: ChatTarget) => void;
+  setJumpToKey: (key: string | null) => void;
   loadChannels: () => Promise<void>;
   setChannels: (channels: ChannelInfo[]) => void;
   loadPeers: () => Promise<void>;
@@ -45,6 +47,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   postsByChannel: {},
   activeTarget: null,
   unreadCounts: {},
+  jumpToKey: null,
+
+  setJumpToKey: (key) => set({ jumpToKey: key }),
 
   setActiveTarget: (t) => {
     const key = t?.type === "dm" ? t.peer : t?.type === "channel" ? `channel:${t.cid}` : null;

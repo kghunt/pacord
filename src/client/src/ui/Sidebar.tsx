@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useConnectionStore, displayNameFor } from "../state/connectionStore";
+import { useConnectionStore, displayNameFor, fullDisplayFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
 import { fetchVersion } from "../api/rest";
 
@@ -9,12 +9,14 @@ export function Sidebar({
   onOpenAvatars,
   onOpenDebug,
   onOpenNodeInfo,
+  onOpenSearch,
 }: {
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onOpenAvatars: () => void;
   onOpenDebug: () => void;
   onOpenNodeInfo: () => void;
+  onOpenSearch: () => void;
 }) {
   const { connectionState, profiles } = useConnectionStore();
   const { channels, peers, activeTarget, setActiveTarget, loadMessages, loadPosts, unreadCounts } = useChatStore();
@@ -121,7 +123,7 @@ export function Sidebar({
                     height: 8,
                   }}
                 />
-                {displayNameFor(peer)}
+                {fullDisplayFor(peer)}
                 {unread > 0 && <span className="unread-badge">{unread > 99 ? "99+" : unread}</span>}
               </div>
             );
@@ -134,6 +136,9 @@ export function Sidebar({
           <span className={`status-dot ${connectionState.status}`} />
           {activeProfile ? activeProfile.myCall : "Not connected"}
         </div>
+        <button className="icon-button" title="Search messages (Ctrl+K)" onClick={onOpenSearch}>
+          🔍
+        </button>
         <button className="icon-button" title="Avatars" onClick={onOpenAvatars}>
           🖼
         </button>
