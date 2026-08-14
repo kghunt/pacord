@@ -5,6 +5,33 @@ import { useChatStore } from "../state/chatStore";
 
 let audioCtx: AudioContext | null = null;
 
+// ---------------------------------------------------------------------------
+// Idle / focus detection
+// ---------------------------------------------------------------------------
+let lastActivityMs = Date.now();
+
+function recordActivity() {
+  lastActivityMs = Date.now();
+}
+
+const IDLE_THRESHOLD_MS = 5 * 60 * 1000;
+
+function isUserIdle(): boolean {
+  return Date.now() - lastActivityMs > IDLE_THRESHOLD_MS;
+}
+
+// Returns true when we should treat the user as "not watching" even if a
+// channel is currently open — i.e. the window has lost focus or the user
+// hasn't touched the keyboard/mouse for 5 minutes.
+function userIsAway(): boolean {
+  return document.hidden || !document.hasFocus() || isUserIdle();
+}
+
+// Register once at module load — passive so they never block scroll/input.
+for (const ev of ["mousemove", "mousedown", "keydown", "touchstart", "scroll"] as const) {
+  window.addEventListener(ev, recordActivity, { passive: true });
+}
+
 function ping() {
   try {
     if (!audioCtx) audioCtx = new AudioContext();
@@ -31,9 +58,8 @@ function ping() {
   }
 }
 
-function notify(title: string, body: string, force = false) {
+function notify(title: string, body: string) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-  if (!document.hidden && !force) return;
   try {
     new Notification(title, { body: body.slice(0, 100), icon: "/icon.svg", badge: "/icon.svg" });
   } catch {
@@ -62,7 +88,8 @@ export function useBackendSocket(): void {
             useChatStore.getState().addPeer(peer);
             if (ev.row.fromCall !== myCall) {
               const { activeTarget } = useChatStore.getState();
-              if (!(activeTarget?.type === "dm" && activeTarget.peer === peer)) {
+              const isActiveDm = activeTarget?.type === "dm" && activeTarget.peer === peer;
+              if (!isActiveDm || userIsAway()) {
                 useChatStore.getState().incrementUnread(peer);
                 ping();
                 notify(displayNameFor(peer), ev.row.body);
@@ -85,11 +112,11 @@ export function useBackendSocket(): void {
               const isMention = myCall ? (ev.row.atCalls ?? []).includes(myCall) : false;
               const { activeTarget } = useChatStore.getState();
               const isActiveChannel = activeTarget?.type === "channel" && activeTarget.cid === ev.row.cid;
-              if (!isActiveChannel || isMention) {
+              if (!isActiveChannel || isMention || userIsAway()) {
                 useChatStore.getState().incrementUnread(`channel:${ev.row.cid}`);
                 ping();
                 const ch = useChatStore.getState().channels.find((c) => c.cid === ev.row.cid);
-                notify(`#${ch?.name ?? ev.row.cid}`, `${displayNameFor(ev.row.fromCall)}: ${ev.row.body}`, isMention);
+                notify(`#${ch?.name ?? ev.row.cid}`, `${displayNameFor(ev.row.fromCall)}: ${ev.row.body}`);
               }
             }
           }
