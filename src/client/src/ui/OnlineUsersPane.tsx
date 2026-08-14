@@ -20,9 +20,11 @@ export function OnlineUsersPane() {
 
   const onlineSet = new Set(connectionState.onlineUsers);
 
+  const toMs = (ts: number) => (ts < 1_000_000_000_000 ? ts * 1000 : ts);
+
   const offlineHams = Object.values(hams)
     .filter((h) => !onlineSet.has(h.callsign))
-    .sort((a, b) => b.ts - a.ts);
+    .sort((a, b) => toMs(b.ts) - toMs(a.ts));
 
   function openDm(call: string) {
     setActiveTarget({ type: "dm", peer: call });
