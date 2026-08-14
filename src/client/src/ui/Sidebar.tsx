@@ -8,11 +8,13 @@ export function Sidebar({
   onOpenTerminal,
   onOpenAvatars,
   onOpenDebug,
+  onOpenNodeInfo,
 }: {
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onOpenAvatars: () => void;
   onOpenDebug: () => void;
+  onOpenNodeInfo: () => void;
 }) {
   const { connectionState, profiles } = useConnectionStore();
   const { channels, peers, activeTarget, setActiveTarget, loadMessages, loadPosts, unreadCounts } = useChatStore();
@@ -52,7 +54,13 @@ export function Sidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h1>{activeProfile ? activeProfile.name : "Pacord"}</h1>
+        <h1
+          style={{ cursor: "pointer" }}
+          title="View node info &amp; network map"
+          onClick={onOpenNodeInfo}
+        >
+          {activeProfile ? activeProfile.name : "Pacord"}
+        </h1>
         <span className="status-pill">
           <span className={`status-dot ${connectionState.status}`} />
           {connectionState.status}

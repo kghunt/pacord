@@ -6,6 +6,7 @@ import { ProfileManager } from "./ProfileManager";
 import { TerminalPanel } from "./TerminalPanel";
 import { AvatarManager } from "./AvatarManager";
 import { DebugTerminal } from "./DebugTerminal";
+import { NodeInfo } from "./NodeInfo";
 import { useConnectionStore } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
 import { fetchSettings, fetchVersion } from "../api/rest";
@@ -16,6 +17,7 @@ export function Shell() {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [avatarsOpen, setAvatarsOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [nodeInfoOpen, setNodeInfoOpen] = useState(false);
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; version: string } | null>(null);
   const [avatarCheckIntervalMinutes, setAvatarCheckIntervalMinutes] = useState(0);
@@ -102,6 +104,7 @@ export function Shell() {
         onOpenTerminal={() => setTerminalOpen(true)}
         onOpenAvatars={() => setAvatarsOpen(true)}
         onOpenDebug={() => setDebugOpen(true)}
+        onOpenNodeInfo={() => setNodeInfoOpen(true)}
       />
       <ChatPane />
       <OnlineUsersPane />
@@ -109,6 +112,7 @@ export function Shell() {
       {terminalOpen && <TerminalPanel onClose={() => setTerminalOpen(false)} />}
       {avatarsOpen && <AvatarManager onClose={() => setAvatarsOpen(false)} />}
       {debugOpen && <DebugTerminal onClose={() => setDebugOpen(false)} />}
+      {nodeInfoOpen && <NodeInfo onClose={() => setNodeInfoOpen(false)} />}
     </div>
     </>
   );

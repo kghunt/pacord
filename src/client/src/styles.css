@@ -717,6 +717,115 @@ select {
   font-size: 20px;
 }
 
+/* ── Node Info panel ── */
+.node-info-modal {
+  width: min(860px, 96vw);
+  max-height: 90vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.node-info-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.node-info-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.node-info-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+.node-info-tab:hover { color: var(--text-normal); }
+.node-info-tab.active {
+  color: var(--text-normal);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.node-info-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 24px;
+}
+
+.node-info-placeholder {
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  margin-top: 40px;
+}
+
+.node-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.node-table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.node-table th:hover { color: var(--text-normal); }
+.node-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  vertical-align: middle;
+}
+.node-table tr:last-child td { border-bottom: none; }
+.node-table tr:hover td { background: var(--bg-secondary); }
+
+.quality-bar {
+  width: 60px;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.quality-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.map-tooltip {
+  position: fixed;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 200;
+}
+
 .modal .modal-subtitle {
   color: var(--text-muted);
   font-size: 14px;

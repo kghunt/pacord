@@ -100,6 +100,9 @@ export const fetchVersion = () =>
     json<{ version: string; latest: string | null; updateAvailable: boolean }>(r)
   );
 
+export const fetchNodeProxy = (path: string) =>
+  fetch(`/api/node-proxy?path=${encodeURIComponent(path)}`).then((r) => json<unknown>(r));
+
 export const uploadAvatar = (imageBase64: string) =>
   fetch("/api/avatar/upload", {
     method: "POST",
