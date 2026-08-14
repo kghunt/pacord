@@ -1,18 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { sendAction } from "../api/socket";
-import { onServerEvent } from "../api/socket";
-
-interface DebugFrame {
-  id: number;
-  direction: "in" | "out";
-  frame: string;
-  tsMs: number;
-}
-
-let seq = 0;
+import { debugFrameBuffer, onDebugBufferChange, type DebugFrame } from "../api/useBackendSocket";
 
 export function DebugTerminal({ onClose }: { onClose: () => void }) {
-  const [frames, setFrames] = useState<DebugFrame[]>([]);
+  const [frames, setFrames] = useState<DebugFrame[]>(() => [...debugFrameBuffer]);
   const [filter, setFilter] = useState("");
   const [paused, setPaused] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -21,19 +11,11 @@ export function DebugTerminal({ onClose }: { onClose: () => void }) {
   pausedRef.current = paused;
 
   useEffect(() => {
-    sendAction({ type: "set_debug", enabled: true });
-    const unsub = onServerEvent((ev) => {
-      if (ev.type !== "debug_frame") return;
+    const unsub = onDebugBufferChange(() => {
       if (pausedRef.current) return;
-      setFrames((prev) => {
-        const next = [...prev, { id: seq++, direction: ev.direction, frame: ev.frame, tsMs: ev.tsMs }];
-        return next.length > 500 ? next.slice(next.length - 500) : next;
-      });
+      setFrames([...debugFrameBuffer]);
     });
-    return () => {
-      unsub();
-      sendAction({ type: "set_debug", enabled: false });
-    };
+    return unsub;
   }, []);
 
   useEffect(() => {
@@ -62,6 +44,7 @@ export function DebugTerminal({ onClose }: { onClose: () => void }) {
       <div className="modal debug-modal" onClick={(e) => e.stopPropagation()}>
         <div className="debug-toolbar">
           <span className="debug-title">WPS Frame Log</span>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{frames.length}/100</span>
           <input
             className="debug-filter"
             placeholder="Filter…"
@@ -70,9 +53,6 @@ export function DebugTerminal({ onClose }: { onClose: () => void }) {
           />
           <button className="btn small" onClick={() => setPaused((v) => !v)}>
             {paused ? "Resume" : "Pause"}
-          </button>
-          <button className="btn small" onClick={() => setFrames([])}>
-            Clear
           </button>
           <button className="btn small" onClick={onClose}>
             Close

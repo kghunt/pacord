@@ -1,7 +1,34 @@
 import { useEffect } from "react";
-import { connectSocket, onServerEvent } from "./socket";
+import { connectSocket, onServerEvent, sendAction } from "./socket";
 import { useConnectionStore, displayNameFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
+
+// ---------------------------------------------------------------------------
+// Persistent rolling frame buffer — kept alive regardless of whether the
+// debug modal is open, so you can always inspect the last 100 frames.
+// ---------------------------------------------------------------------------
+export interface DebugFrame {
+  id: number;
+  direction: "in" | "out";
+  frame: string;
+  tsMs: number;
+}
+
+const DEBUG_BUFFER_SIZE = 100;
+let _debugSeq = 0;
+export const debugFrameBuffer: DebugFrame[] = [];
+const _debugListeners = new Set<() => void>();
+
+export function onDebugBufferChange(fn: () => void): () => void {
+  _debugListeners.add(fn);
+  return () => _debugListeners.delete(fn);
+}
+
+function pushDebugFrame(f: Omit<DebugFrame, "id">): void {
+  debugFrameBuffer.push({ ...f, id: _debugSeq++ });
+  if (debugFrameBuffer.length > DEBUG_BUFFER_SIZE) debugFrameBuffer.shift();
+  _debugListeners.forEach((fn) => fn());
+}
 
 let audioCtx: AudioContext | null = null;
 
@@ -72,7 +99,13 @@ function notify(title: string, body: string) {
 export function useBackendSocket(): void {
   useEffect(() => {
     connectSocket();
+    // Enable debug mode permanently so the rolling buffer always captures frames.
+    sendAction({ type: "set_debug", enabled: true });
     const unsubscribe = onServerEvent((ev) => {
+      if (ev.type === "debug_frame") {
+        pushDebugFrame({ direction: ev.direction, frame: ev.frame, tsMs: ev.tsMs });
+        return;
+      }
       switch (ev.type) {
         case "connection_state":
           useConnectionStore.getState().setConnectionState(ev.state);

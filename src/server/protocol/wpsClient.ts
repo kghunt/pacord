@@ -177,12 +177,6 @@ export class WpsClient extends EventEmitter {
       if (!stream.injectsCallsign) {
         await stream.send(Buffer.from(`${this.profile.myCall.toUpperCase()}\r\n`, "utf-8"));
       }
-      const cc = channelsDb.listChannels()
-        .filter((ch) => ch.subscribed)
-        .map((ch) => {
-          const wm = postsDb.getChannelWatermarks(ch.cid);
-          return { cid: ch.cid, lp: wm.lastPost, le: wm.lastEmoji, led: wm.lastEdit };
-        });
       const record = {
         t: "c",
         n: this.profile.displayName,
@@ -192,7 +186,6 @@ export class WpsClient extends EventEmitter {
         led: metaDb.getMetaNumber("last_edit", 0),
         lhts: metaDb.getMetaNumber("last_ham_ts", 0),
         v: CLIENT_VERSION,
-        cc,
       };
       await stream.send(codec.encode(record));
     } catch (exc) {
