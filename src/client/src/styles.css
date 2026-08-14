@@ -80,6 +80,11 @@ select {
   margin-left: 4px;
 }
 
+.avatar-banner {
+  background: var(--accent);
+  color: #fff;
+}
+
 .app-shell {
   display: flex;
   flex: 1;

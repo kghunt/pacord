@@ -8,21 +8,25 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
   const { profiles, connectionState, createProfile, deleteProfile, connect, disconnect } = useConnectionStore();
   const [editing, setEditing] = useState<ConnectProfile | "new" | null>(null);
   const [idleMinutes, setIdleMinutes] = useState<number>(0);
-  const [idleSaving, setIdleSaving] = useState(false);
-  const [idleSaved, setIdleSaved] = useState(false);
+  const [avatarCheckMinutes, setAvatarCheckMinutes] = useState<number>(0);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
 
   useEffect(() => {
-    fetchSettings().then((s) => setIdleMinutes(s.idleDisconnectMinutes)).catch(() => {});
+    fetchSettings().then((s) => {
+      setIdleMinutes(s.idleDisconnectMinutes);
+      setAvatarCheckMinutes(s.avatarCheckIntervalMinutes);
+    }).catch(() => {});
   }, []);
 
-  async function saveIdle() {
-    setIdleSaving(true);
-    setIdleSaved(false);
+  async function saveAllSettings() {
+    setSettingsSaving(true);
+    setSettingsSaved(false);
     try {
-      await saveSettings({ idleDisconnectMinutes: idleMinutes });
-      setIdleSaved(true);
+      await saveSettings({ idleDisconnectMinutes: idleMinutes, avatarCheckIntervalMinutes: avatarCheckMinutes });
+      setSettingsSaved(true);
     } finally {
-      setIdleSaving(false);
+      setSettingsSaving(false);
     }
   }
 
@@ -98,25 +102,42 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
 
         <div className="settings-section">
           <h3>Server Settings</h3>
-          <div className="form-row" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <div className="form-row" style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <label style={{ flex: "none", marginBottom: 0 }}>Auto-disconnect from WPS after</label>
             <input
               type="number"
               min={0}
               style={{ width: 70 }}
               value={idleMinutes}
-              onChange={(e) => { setIdleMinutes(Number(e.target.value)); setIdleSaved(false); }}
+              onChange={(e) => { setIdleMinutes(Number(e.target.value)); setSettingsSaved(false); }}
             />
             <span style={{ color: "var(--text-muted)" }}>minutes idle (0 = never)</span>
-            <button className="btn small primary" onClick={saveIdle} disabled={idleSaving}>
-              {idleSaving ? "Saving…" : "Save"}
-            </button>
-            {idleSaved && <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Saved</span>}
           </div>
           <p className="form-hint">
             If no browser has the app open for this many minutes the server will disconnect from WPS, marking
             you offline on the network. Reconnects automatically when you next open the app.
           </p>
+          <div className="form-row" style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            <label style={{ flex: "none", marginBottom: 0 }}>Check for new avatars every</label>
+            <input
+              type="number"
+              min={0}
+              style={{ width: 70 }}
+              value={avatarCheckMinutes}
+              onChange={(e) => { setAvatarCheckMinutes(Number(e.target.value)); setSettingsSaved(false); }}
+            />
+            <span style={{ color: "var(--text-muted)" }}>minutes (0 = never)</span>
+          </div>
+          <p className="form-hint">
+            Periodically asks WPS how many new avatars are available. A banner appears in the app if any are
+            waiting — click it to open the avatar download panel.
+          </p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+            <button className="btn small primary" onClick={saveAllSettings} disabled={settingsSaving}>
+              {settingsSaving ? "Saving…" : "Save settings"}
+            </button>
+            {settingsSaved && <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Saved</span>}
+          </div>
         </div>
 
         <div className="form-actions">

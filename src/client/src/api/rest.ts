@@ -84,14 +84,16 @@ export const fetchPosts = (cid: number) => fetch(`/api/posts/${cid}`).then((r) =
 export const fetchRoster = () => fetch("/api/roster").then((r) => json<{ online: string[]; hams: HamInfo[] }>(r));
 
 export const fetchSettings = () =>
-  fetch("/api/settings").then((r) => json<{ idleDisconnectMinutes: number }>(r));
+  fetch("/api/settings").then((r) =>
+    json<{ idleDisconnectMinutes: number; avatarCheckIntervalMinutes: number }>(r)
+  );
 
-export const saveSettings = (body: { idleDisconnectMinutes: number }) =>
+export const saveSettings = (body: { idleDisconnectMinutes: number; avatarCheckIntervalMinutes: number }) =>
   fetch("/api/settings", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }).then((r) => json<{ idleDisconnectMinutes: number }>(r));
+  }).then((r) => json<{ idleDisconnectMinutes: number; avatarCheckIntervalMinutes: number }>(r));
 
 export const fetchVersion = () =>
   fetch("/api/version").then((r) =>

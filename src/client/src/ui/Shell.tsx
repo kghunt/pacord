@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { ChatPane } from "./ChatPane";
 import { OnlineUsersPane } from "./OnlineUsersPane";
@@ -8,7 +8,8 @@ import { AvatarManager } from "./AvatarManager";
 import { DebugTerminal } from "./DebugTerminal";
 import { useConnectionStore } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
-import { fetchVersion } from "../api/rest";
+import { fetchSettings, fetchVersion } from "../api/rest";
+import { sendAction } from "../api/socket";
 
 export function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -17,8 +18,14 @@ export function Shell() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; version: string } | null>(null);
+  const [avatarCheckIntervalMinutes, setAvatarCheckIntervalMinutes] = useState(0);
+  const [avatarBannerDismissed, setAvatarBannerDismissed] = useState(false);
+  const prevAvatarCount = useRef<number | null>(null);
+
   const profiles = useConnectionStore((s) => s.profiles);
   const profilesLoaded = useConnectionStore((s) => s.profilesLoaded);
+  const connected = useConnectionStore((s) => s.connectionState.status === "connected");
+  const avatarCount = useConnectionStore((s) => s.avatarCount);
   const activeTarget = useChatStore((s) => s.activeTarget);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
 
@@ -37,6 +44,34 @@ export function Shell() {
     }).catch(() => {});
   }, []);
 
+  // Re-fetch settings whenever the settings modal closes so the interval
+  // updates immediately after the user saves a new value.
+  useEffect(() => {
+    if (settingsOpen) return;
+    fetchSettings().then((s) => {
+      setAvatarCheckIntervalMinutes(s.avatarCheckIntervalMinutes);
+    }).catch(() => {});
+  }, [settingsOpen]);
+
+  // Periodic avatar count check.
+  useEffect(() => {
+    if (avatarCheckIntervalMinutes <= 0 || !connected) return;
+    const timer = setInterval(() => {
+      sendAction({ type: "request_avatars", countOnly: true });
+    }, avatarCheckIntervalMinutes * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [avatarCheckIntervalMinutes, connected]);
+
+  // Reset banner dismissal when the count increases.
+  useEffect(() => {
+    if (avatarCount !== null && avatarCount > (prevAvatarCount.current ?? 0)) {
+      setAvatarBannerDismissed(false);
+    }
+    prevAvatarCount.current = avatarCount;
+  }, [avatarCount]);
+
+  const showAvatarBanner = avatarCount !== null && avatarCount > 0 && !avatarBannerDismissed;
+
   return (
     <>
       {updateInfo && !updateDismissed && (
@@ -44,6 +79,21 @@ export function Shell() {
           <span>Pacord v{updateInfo.latest} is available (running v{updateInfo.version})</span>
           <code>sudo docker compose pull && sudo docker compose up -d</code>
           <button onClick={() => setUpdateDismissed(true)} title="Dismiss">×</button>
+        </div>
+      )}
+      {showAvatarBanner && (
+        <div
+          className="update-banner avatar-banner"
+          onClick={() => { setAvatarsOpen(true); setAvatarBannerDismissed(true); }}
+          style={{ cursor: "pointer" }}
+        >
+          <span>🖼 {avatarCount} new avatar{avatarCount === 1 ? "" : "s"} available — click to download</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); setAvatarBannerDismissed(true); }}
+            title="Dismiss"
+          >
+            ×
+          </button>
         </div>
       )}
     <div className={`app-shell${activeTarget ? " mobile-chat-active" : ""}`}>
