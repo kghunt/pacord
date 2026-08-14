@@ -127,6 +127,10 @@ async function handleAction(ws: WebSocket, action: ClientAction): Promise<void> 
       if (!client) throw new Error("not connected");
       await client.requestAvatars(action.countOnly);
       break;
+    case "request_stats":
+      if (!client) throw new Error("not connected");
+      await client.requestStats();
+      break;
     case "set_debug":
       if (action.enabled) {
         debugSockets.add(ws);

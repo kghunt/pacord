@@ -123,6 +123,13 @@ export function removePostEmoji(cid: number, ts: number, emoji: string, callsign
 // `cpb`/`cpemb` carry the full current reaction state for a post as
 // [{e: emoji, c: [callsigns]}, ...] — replace wholesale, mirroring
 // whatspyc's apply_post_emoji_batch.
+export function getChannelWatermarks(cid: number): { lastPost: number; lastEmoji: number; lastEdit: number } {
+  const postRow = db.prepare("SELECT MAX(ts) as v FROM posts WHERE cid = ?").get(cid) as { v: number | null };
+  const emojiRow = db.prepare("SELECT MAX(ets) as v FROM post_reactions WHERE cid = ?").get(cid) as { v: number | null };
+  const editRow = db.prepare("SELECT MAX(edit_ts) as v FROM posts WHERE cid = ? AND edit_ts IS NOT NULL").get(cid) as { v: number | null };
+  return { lastPost: postRow?.v ?? 0, lastEmoji: emojiRow?.v ?? 0, lastEdit: editRow?.v ?? 0 };
+}
+
 export function applyPostEmojiBatch(
   cid: number,
   ts: number,

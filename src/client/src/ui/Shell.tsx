@@ -28,6 +28,8 @@ export function Shell() {
   const profilesLoaded = useConnectionStore((s) => s.profilesLoaded);
   const connected = useConnectionStore((s) => s.connectionState.status === "connected");
   const avatarCount = useConnectionStore((s) => s.avatarCount);
+  const welcomeReceived = useConnectionStore((s) => s.welcomeReceived);
+  const setWelcomeReceived = useConnectionStore((s) => s.setWelcomeReceived);
   const activeTarget = useChatStore((s) => s.activeTarget);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
 
@@ -81,6 +83,12 @@ export function Shell() {
           <span>Pacord v{updateInfo.latest} is available (running v{updateInfo.version})</span>
           <code>sudo docker compose pull && sudo docker compose up -d</code>
           <button onClick={() => setUpdateDismissed(true)} title="Dismiss">×</button>
+        </div>
+      )}
+      {welcomeReceived && (
+        <div className="update-banner" style={{ background: "var(--online)" }}>
+          <span>Welcome to WhatsPac! You're all set — start chatting by selecting a channel or sending a direct message.</span>
+          <button onClick={() => setWelcomeReceived(false)} title="Dismiss">×</button>
         </div>
       )}
       {showAvatarBanner && (

@@ -177,6 +177,12 @@ export class WpsClient extends EventEmitter {
       if (!stream.injectsCallsign) {
         await stream.send(Buffer.from(`${this.profile.myCall.toUpperCase()}\r\n`, "utf-8"));
       }
+      const cc = channelsDb.listChannels()
+        .filter((ch) => ch.subscribed)
+        .map((ch) => {
+          const wm = postsDb.getChannelWatermarks(ch.cid);
+          return { cid: ch.cid, lp: wm.lastPost, le: wm.lastEmoji, led: wm.lastEdit };
+        });
       const record = {
         t: "c",
         n: this.profile.displayName,
@@ -186,6 +192,7 @@ export class WpsClient extends EventEmitter {
         led: metaDb.getMetaNumber("last_edit", 0),
         lhts: metaDb.getMetaNumber("last_ham_ts", 0),
         v: CLIENT_VERSION,
+        cc,
       };
       await stream.send(codec.encode(record));
     } catch (exc) {
@@ -336,7 +343,7 @@ export class WpsClient extends EventEmitter {
 
   async reactPost(cid: number, ts: number, emoji: string, add: boolean): Promise<void> {
     const wire = emojiToWire(emoji);
-    const ets = Math.floor(Date.now() / 1000);
+    const ets = Date.now();
     await this.send({ t: "cpem", a: add ? 1 : 0, ts, cid, ets, e: wire });
     if (add) {
       postsDb.upsertPostEmoji(cid, ts, wire, this.appCall, ets);
@@ -365,6 +372,10 @@ export class WpsClient extends EventEmitter {
 
   async keepAlive(): Promise<void> {
     await this.send({ t: "k" });
+  }
+
+  async requestStats(): Promise<void> {
+    await this.send({ t: "s" });
   }
 
   // ------------------------------------------------------------------
@@ -476,7 +487,7 @@ export class WpsClient extends EventEmitter {
     const myCall = this.appCall;
     switch (t) {
       case "c": {
-        // Connect ack — informational only (msg/post counts, welcome flag).
+        if (obj.w) this.emitEvent({ type: "welcome" });
         break;
       }
       case "m": {
@@ -535,7 +546,7 @@ export class WpsClient extends EventEmitter {
         break;
       }
       case "medb": {
-        const arr = (obj.med as Array<Record<string, unknown>>) ?? [];
+        const arr = (obj.m as Array<Record<string, unknown>>) ?? [];
         let highest = 0;
         for (const m of arr) {
           const msgId = m._id as string | undefined;
@@ -575,7 +586,7 @@ export class WpsClient extends EventEmitter {
         break;
       }
       case "memb": {
-        const arr = (obj.mem as Array<Record<string, unknown>>) ?? [];
+        const arr = (obj.m as Array<Record<string, unknown>>) ?? [];
         let highest = 0;
         for (const entry of arr) {
           const msgId = entry._id as string | undefined;
@@ -664,6 +675,20 @@ export class WpsClient extends EventEmitter {
         }
         break;
       }
+      case "cpemb": {
+        const arr = (obj.e as Array<Record<string, unknown>>) ?? [];
+        for (const entry of arr) {
+          const cid = entry.cid as number | undefined;
+          const ts = entry.ts as number | undefined;
+          const ets = entry.ets as number | undefined;
+          const e = entry.e as Array<{ e: string; c: string[] }> | undefined;
+          if (cid === undefined || ts === undefined || typeof ets !== "number") continue;
+          postsDb.applyPostEmojiBatch(cid, ts, e ?? [], ets);
+          const row = postsDb.lookupPost(cid, ts);
+          if (row) this.emitEvent({ type: "post", row });
+        }
+        break;
+      }
       case "cpr": {
         const ts = obj.ts as number | undefined;
         const dts = obj.dts as number | undefined;
@@ -742,6 +767,24 @@ export class WpsClient extends EventEmitter {
         const call = String(obj.c ?? "").toUpperCase();
         this.online.delete(call);
         this.emitConnectionState("connected");
+        break;
+      }
+      case "u": {
+        // Deprecated in favour of "he", but still sent on reconnect for DM contacts.
+        const arr = (obj.u as Array<{ tc: string; n: string; ls: number }>) ?? [];
+        for (const u of arr) {
+          if (!u.tc) continue;
+          const call = u.tc.toUpperCase();
+          hamsDb.upsertHam(call, u.n ?? "", u.ls ?? 0);
+          this.emitEvent({ type: "ham", ham: { callsign: call, name: u.n ?? "", ts: u.ls ?? 0 } });
+        }
+        break;
+      }
+      case "s": {
+        const statsData = obj.s;
+        if (statsData && typeof statsData === "object") {
+          this.emitEvent({ type: "wps_stats", stats: statsData as import("../../shared/types.js").WpsStats });
+        }
         break;
       }
       default:

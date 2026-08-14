@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useConnectionStore } from "../state/connectionStore";
 import { fetchNodeProxy } from "../api/rest";
+import { sendAction } from "../api/socket";
 
 // ---------------------------------------------------------------------------
 // Data normalisation — handles BPQ32, XRouter, and XrPi response shapes
@@ -129,7 +130,7 @@ function qualColor(q: number): string {
 // Main component
 // ---------------------------------------------------------------------------
 
-type Tab = "nodes" | "heard" | "map";
+type Tab = "nodes" | "heard" | "map" | "stats";
 
 type FetchResult<T> =
   | { state: "idle" }
@@ -155,6 +156,7 @@ async function tryPaths(paths: string[]): Promise<{ data: unknown } | { html: tr
 export function NodeInfo({ onClose }: { onClose: () => void }) {
   const profiles = useConnectionStore((s) => s.profiles);
   const activeProfileId = useConnectionStore((s) => s.connectionState.activeProfileId);
+  const wpsStats = useConnectionStore((s) => s.wpsStats);
   const profile = profiles.find((p) => p.id === activeProfileId)
     ?? profiles.find((p) => p.adminPort != null)
     ?? profiles[0]
@@ -163,6 +165,7 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
   const myCall = profile?.myCall.toUpperCase().split("-")[0] ?? null;
 
   const [tab, setTab] = useState<Tab>("nodes");
+  const [statsLoading, setStatsLoading] = useState(false);
   const [nodes, setNodes] = useState<FetchResult<NormalizedNode[]>>({ state: "idle" });
   const [heard, setHeard] = useState<FetchResult<NormalizedHeard[]>>({ state: "idle" });
   const [nodeSort, setNodeSort] = useState<{ col: keyof NormalizedNode; dir: 1 | -1 }>({
@@ -278,13 +281,20 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="node-info-tabs">
-          {(["nodes", "heard", "map"] as Tab[]).map((t) => (
+          {(["nodes", "heard", "map", "stats"] as Tab[]).map((t) => (
             <button
               key={t}
               className={`node-info-tab${tab === t ? " active" : ""}`}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setTab(t);
+                if (t === "stats") {
+                  setStatsLoading(true);
+                  sendAction({ type: "request_stats" });
+                  setTimeout(() => setStatsLoading(false), 8000);
+                }
+              }}
             >
-              {t === "nodes" ? "Nodes" : t === "heard" ? "Heard log" : "Network map"}
+              {t === "nodes" ? "Nodes" : t === "heard" ? "Heard log" : t === "map" ? "Network map" : "WPS Stats"}
             </button>
           ))}
         </div>
@@ -302,6 +312,7 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
           {tab === "map" && (
             <MapTab layout={mapLayout} svgRef={mapSvgRef} w={MAP_W} h={MAP_H} />
           )}
+          {tab === "stats" && <WpsStatsTab stats={wpsStats} loading={statsLoading && !wpsStats} />}
         </div>
       </div>
     </div>
@@ -442,12 +453,6 @@ function formatLastHeard(raw: string): string {
   }
 }
 
-function qualColor(q: number): string {
-  if (q >= 170) return "#3d8";
-  if (q >= 85) return "#f90";
-  return "#e05";
-}
-
 function MapTab({
   layout,
   svgRef,
@@ -579,6 +584,58 @@ function MapTab({
         <span style={{ color: "#f90" }}>fair</span> /&nbsp;
         <span style={{ color: "#e05" }}>poor</span> quality.
         {" "}Thickness proportional to quality. Edges show RTT where available.
+      </div>
+    </div>
+  );
+}
+
+function WpsStatsTab({ stats, loading }: { stats: import("@shared/types").WpsStats | null; loading: boolean }) {
+  if (loading) return <p className="node-info-placeholder">Requesting stats from WPS server…</p>;
+  if (!stats) return (
+    <p className="node-info-placeholder">
+      No stats received yet. Click the <strong>WPS Stats</strong> tab to request them.
+    </p>
+  );
+
+  const sections: Array<{ title: string; rows: import("@shared/types").WpsStatRow[] | undefined }> = [
+    { title: "Posts", rows: stats.p },
+    { title: "Messages", rows: stats.m },
+    { title: "Server", rows: stats.s },
+  ];
+
+  return (
+    <div style={{ padding: "8px 0" }}>
+      {stats.h && Object.keys(stats.h).length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Overview</div>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            {Object.entries(stats.h).map(([k, v]) => (
+              <div key={k} style={{ background: "var(--surface)", borderRadius: 8, padding: "8px 16px", minWidth: 100, textAlign: "center" }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{v.toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                  {k === "uculsd" ? "Users (7 days)" : k}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+        {sections.filter((s) => s.rows && s.rows.length > 0).map(({ title, rows }) => (
+          <div key={title}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{title}</div>
+            <table className="node-table">
+              <tbody>
+                {rows!.map((row) => (
+                  <tr key={row.s}>
+                    <td>{row.s}</td>
+                    <td style={{ textAlign: "right", fontWeight: 600 }}>{row.v.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -112,6 +112,14 @@ export interface ConnectionState {
 // Backend -> frontend events (pushed over /ws)
 // ---------------------------------------------------------------------------
 
+export interface WpsStatRow { s: string; v: number }
+export interface WpsStats {
+  h?: Record<string, number>;
+  p?: WpsStatRow[];
+  m?: WpsStatRow[];
+  s?: WpsStatRow[];
+}
+
 export type ServerEvent =
   | { type: "connection_state"; state: ConnectionState }
   | { type: "message"; row: MessageRow }
@@ -123,6 +131,8 @@ export type ServerEvent =
   | { type: "paused_channel"; cid: number; pendingCount: number }
   | { type: "avatar_count"; count: number }
   | { type: "avatar"; callsign: string }
+  | { type: "wps_stats"; stats: WpsStats }
+  | { type: "welcome" }
   | { type: "debug_frame"; direction: "in" | "out"; frame: string; tsMs: number };
 
 // ---------------------------------------------------------------------------
@@ -141,4 +151,5 @@ export type ClientAction =
   | { type: "unpause_channel"; cid: number; postCount: number }
   | { type: "request_post_batch"; cid: number; count: number }
   | { type: "request_avatars"; countOnly: boolean }
+  | { type: "request_stats" }
   | { type: "set_debug"; enabled: boolean };

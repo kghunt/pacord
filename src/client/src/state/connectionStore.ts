@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ConnectProfile, ConnectionState, HamInfo, NewConnectProfile } from "@shared/types";
+import type { ConnectProfile, ConnectionState, HamInfo, NewConnectProfile, WpsStats } from "@shared/types";
 import * as api from "../api/rest";
 
 interface ConnectionStore {
@@ -27,6 +27,10 @@ interface ConnectionStore {
   bumpAvatarVersion: (callsign: string) => void;
   startAvatarDownload: () => void;
   recordAvatarReceived: () => void;
+  wpsStats: WpsStats | null;
+  setWpsStats: (s: WpsStats) => void;
+  welcomeReceived: boolean;
+  setWelcomeReceived: (v: boolean) => void;
 }
 
 export const useConnectionStore = create<ConnectionStore>((set) => ({
@@ -43,6 +47,8 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   avatarCount: null,
   avatarVersions: {},
   avatarsReceived: null,
+  wpsStats: null,
+  welcomeReceived: false,
 
   loadProfiles: async () => {
     const profiles = await api.fetchProfiles();
@@ -94,6 +100,8 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   startAvatarDownload: () => set({ avatarsReceived: 0 }),
   recordAvatarReceived: () =>
     set((s) => ({ avatarsReceived: s.avatarsReceived === null ? 1 : s.avatarsReceived + 1 })),
+  setWpsStats: (stats) => set({ wpsStats: stats }),
+  setWelcomeReceived: (v) => set({ welcomeReceived: v }),
 }));
 
 export function displayNameFor(callsign: string): string {

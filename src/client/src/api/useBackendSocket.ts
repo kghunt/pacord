@@ -145,6 +145,12 @@ export function useBackendSocket(): void {
           useConnectionStore.getState().bumpAvatarVersion(ev.callsign);
           useConnectionStore.getState().recordAvatarReceived();
           break;
+        case "wps_stats":
+          useConnectionStore.getState().setWpsStats(ev.stats);
+          break;
+        case "welcome":
+          useConnectionStore.getState().setWelcomeReceived(true);
+          break;
       }
     });
     return unsubscribe;
