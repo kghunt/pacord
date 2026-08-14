@@ -31,9 +31,9 @@ function ping() {
   }
 }
 
-function notify(title: string, body: string) {
+function notify(title: string, body: string, force = false) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-  if (!document.hidden) return;
+  if (!document.hidden && !force) return;
   try {
     new Notification(title, { body: body.slice(0, 100), icon: "/icon.svg", badge: "/icon.svg" });
   } catch {
@@ -82,12 +82,14 @@ export function useBackendSocket(): void {
               .getState()
               .profiles.find((p) => p.id === activeProfileId)?.myCall.toUpperCase().split("-", 1)[0];
             if (!myCall || ev.row.fromCall !== myCall) {
+              const isMention = myCall ? (ev.row.atCalls ?? []).includes(myCall) : false;
               const { activeTarget } = useChatStore.getState();
-              if (!(activeTarget?.type === "channel" && activeTarget.cid === ev.row.cid)) {
+              const isActiveChannel = activeTarget?.type === "channel" && activeTarget.cid === ev.row.cid;
+              if (!isActiveChannel || isMention) {
                 useChatStore.getState().incrementUnread(`channel:${ev.row.cid}`);
                 ping();
                 const ch = useChatStore.getState().channels.find((c) => c.cid === ev.row.cid);
-                notify(`#${ch?.name ?? ev.row.cid}`, `${displayNameFor(ev.row.fromCall)}: ${ev.row.body}`);
+                notify(`#${ch?.name ?? ev.row.cid}`, `${displayNameFor(ev.row.fromCall)}: ${ev.row.body}`, isMention);
               }
             }
           }
@@ -113,11 +115,7 @@ export function useBackendSocket(): void {
           useConnectionStore.getState().setAvatarCount(ev.count);
           break;
         case "avatar":
-          // Bumps a cache-busting counter so <img> tags for this callsign
-          // (and any other) re-fetch instead of showing a stale 404 — this
-          // is what makes avatars appear on messages immediately as each
-          // one arrives, rather than waiting for the whole batch.
-          useConnectionStore.getState().bumpAvatarVersion();
+          useConnectionStore.getState().bumpAvatarVersion(ev.callsign);
           useConnectionStore.getState().recordAvatarReceived();
           break;
       }

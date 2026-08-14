@@ -15,6 +15,7 @@ export interface DisplayItem {
   reactions: ReactionEntry[];
   replyPreview: { fromCall: string; body: string } | null;
   isMine: boolean;
+  isMention: boolean;
   grouped: boolean;
   deliveredTs: number | null;
 }
@@ -46,7 +47,7 @@ export function MessageItem({
   }
 
   return (
-    <div className={`message-row ${item.grouped ? "grouped" : ""}`}>
+    <div className={`message-row ${item.grouped ? "grouped" : ""}${item.isMention ? " mention" : ""}`}>
       <AvatarImg callsign={item.fromCall} className="avatar" />
       <div className="message-content">
         {item.replyPreview && (

@@ -17,14 +17,14 @@ interface ConnectionStore {
   upsertHam: (h: HamInfo) => void;
   loadRoster: () => Promise<void>;
   avatarCount: number | null;
-  avatarVersion: number;
+  avatarVersions: Record<string, number>;
   // null = no download started this session; a number = actively/previously
   // tracking one, counting how many "avatar" events have arrived since the
   // last time "Download" was clicked. Compared against avatarCount (from
   // the last "Check count") to show real X-of-Y progress.
   avatarsReceived: number | null;
   setAvatarCount: (n: number) => void;
-  bumpAvatarVersion: () => void;
+  bumpAvatarVersion: (callsign: string) => void;
   startAvatarDownload: () => void;
   recordAvatarReceived: () => void;
 }
@@ -41,7 +41,7 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   },
   hams: {},
   avatarCount: null,
-  avatarVersion: 0,
+  avatarVersions: {},
   avatarsReceived: null,
 
   loadProfiles: async () => {
@@ -89,7 +89,8 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   },
 
   setAvatarCount: (n) => set({ avatarCount: n }),
-  bumpAvatarVersion: () => set((s) => ({ avatarVersion: s.avatarVersion + 1 })),
+  bumpAvatarVersion: (callsign) =>
+    set((s) => ({ avatarVersions: { ...s.avatarVersions, [callsign]: (s.avatarVersions[callsign] ?? 0) + 1 } })),
   startAvatarDownload: () => set({ avatarsReceived: 0 }),
   recordAvatarReceived: () =>
     set((s) => ({ avatarsReceived: s.avatarsReceived === null ? 1 : s.avatarsReceived + 1 })),

@@ -15,11 +15,9 @@ export function AvatarImg({
   className: string;
   children?: ReactNode;
 }) {
-  const avatarVersion = useConnectionStore((s) => s.avatarVersion);
+  const avatarVersion = useConnectionStore((s) => s.avatarVersions[callsign] ?? 0);
   const [failed, setFailed] = useState(false);
 
-  // A new avatar arriving (any callsign) bumps avatarVersion — retry once
-  // rather than staying stuck on a stale "no avatar" fallback forever.
   useEffect(() => {
     setFailed(false);
   }, [avatarVersion]);

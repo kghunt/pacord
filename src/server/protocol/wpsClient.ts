@@ -314,6 +314,7 @@ export class WpsClient extends EventEmitter {
     const edts = Date.now();
     await this.send({ t: "cped", cid, ts, p: newText, edts });
     postsDb.applyPostEdit(cid, ts, newText, edts);
+    metaDb.bumpMeta("last_edit", edts);
     const row = postsDb.lookupPost(cid, ts);
     if (row) this.emitEvent({ type: "post", row });
   }
@@ -481,8 +482,9 @@ export class WpsClient extends EventEmitter {
       case "m": {
         const fromCall = String(obj.fc ?? "").toUpperCase();
         const ts = Number(obj.ts ?? 0);
+        const msgId = String(obj._id ?? `${ts}-${fromCall}`);
         const row = messagesDb.upsertMessage({
-          msgId: String(obj._id ?? `${ts}-${fromCall}`),
+          msgId,
           fromCall,
           toCall: String(obj.tc ?? "").toUpperCase(),
           body: String(obj.m ?? ""),
@@ -492,6 +494,10 @@ export class WpsClient extends EventEmitter {
           receivedTs: fromCall === myCall ? null : this.nowMs(),
         });
         metaDb.bumpMeta("last_message", ts);
+        // Acknowledge receipt to the sender so their delivery tick updates.
+        if (fromCall !== myCall) {
+          this.send({ t: "mr", _id: msgId }).catch(() => {});
+        }
         this.emitEvent({ type: "message", row });
         break;
       }
@@ -563,6 +569,7 @@ export class WpsClient extends EventEmitter {
         if (!row) break;
         const peer = row.fromCall === myCall ? row.toCall : row.fromCall;
         messagesDb.applyMessageEmojiList(msgId, peer, emojis, ets);
+        metaDb.bumpMeta("last_emoji", ets);
         const updated = messagesDb.lookupMessageRow(msgId);
         if (updated) this.emitEvent({ type: "message", row: updated });
         break;

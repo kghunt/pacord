@@ -261,6 +261,7 @@ function toDisplayFromMessage(
   replySource: MessageRow | null
 ): DisplayItem {
   const grouped = !!prev && prev.fromCall === m.fromCall && m.ts * 1000 - prev.ts * 1000 < GROUP_WINDOW_MS && !m.replyId;
+  const isMine = myCall !== null && m.fromCall === myCall;
   return {
     key: m.msgId,
     fromCall: m.fromCall,
@@ -269,7 +270,8 @@ function toDisplayFromMessage(
     editTs: m.editTs,
     reactions: m.reactions,
     replyPreview: replySource ? { fromCall: replySource.fromCall, body: replySource.body } : null,
-    isMine: myCall !== null && m.fromCall === myCall,
+    isMine,
+    isMention: !isMine && myCall !== null,
     grouped,
     deliveredTs: m.deliveredTs ?? null,
   };
@@ -282,6 +284,7 @@ function toDisplayFromPost(
   replySource: PostRow | null
 ): DisplayItem {
   const grouped = !!prev && prev.fromCall === p.fromCall && p.ts - prev.ts < GROUP_WINDOW_MS && !p.replyTs;
+  const isMine = myCall !== null && p.fromCall === myCall;
   return {
     key: String(p.ts),
     fromCall: p.fromCall,
@@ -294,7 +297,8 @@ function toDisplayFromPost(
       : p.replyFrom
         ? { fromCall: p.replyFrom, body: "(original message not loaded)" }
         : null,
-    isMine: myCall !== null && p.fromCall === myCall,
+    isMine,
+    isMention: !isMine && myCall !== null && (p.atCalls ?? []).includes(myCall),
     grouped,
     deliveredTs: p.deliveredTs ?? null,
   };

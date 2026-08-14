@@ -17,13 +17,22 @@ export function OnlineUsersPane() {
   const { connectionState, hams } = useConnectionStore();
   const { setActiveTarget, loadMessages } = useChatStore();
   const [offlineOpen, setOfflineOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   const onlineSet = new Set(connectionState.onlineUsers);
-
   const toMs = (ts: number) => (ts < 1_000_000_000_000 ? ts * 1000 : ts);
+  const q = search.trim().toLowerCase();
+
+  const matchesSearch = (call: string) => {
+    if (!q) return true;
+    const name = (hams[call]?.name ?? "").toLowerCase();
+    return call.toLowerCase().includes(q) || name.includes(q);
+  };
+
+  const visibleOnline = connectionState.onlineUsers.filter(matchesSearch);
 
   const offlineHams = Object.values(hams)
-    .filter((h) => !onlineSet.has(h.callsign))
+    .filter((h) => !onlineSet.has(h.callsign) && matchesSearch(h.callsign))
     .sort((a, b) => toMs(b.ts) - toMs(a.ts));
 
   function openDm(call: string) {
@@ -35,7 +44,15 @@ export function OnlineUsersPane() {
     <div className="online-pane">
       <div className="online-pane-title">Online &mdash; {connectionState.onlineUsers.length}</div>
 
-      {connectionState.onlineUsers.map((call) => (
+      <input
+        className="online-search"
+        type="search"
+        placeholder="Search…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      {visibleOnline.map((call) => (
         <div key={call} className="online-user" onClick={() => openDm(call)} title="Online now">
           <AvatarImg callsign={call} className="avatar-sm">
             <span className="presence-dot" />
@@ -54,7 +71,7 @@ export function OnlineUsersPane() {
             onClick={() => setOfflineOpen((v) => !v)}
             title={offlineOpen ? "Hide offline users" : "Show offline users"}
           >
-            {offlineOpen ? "▾" : "▸"} Offline &mdash; {offlineHams.length}
+            {offlineOpen ? "▾" : "▸"} Offline &mdash; {offlineHams.length}{q ? " (filtered)" : ""}
           </div>
 
           {offlineOpen && offlineHams.map((h) => (
