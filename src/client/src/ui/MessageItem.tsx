@@ -14,6 +14,7 @@ export interface DisplayItem {
   editTs: number | null;
   reactions: ReactionEntry[];
   replyPreview: { fromCall: string; body: string } | null;
+  replyKey: string | null;
   isMine: boolean;
   isMention: boolean;
   grouped: boolean;
@@ -26,12 +27,14 @@ export function MessageItem({
   onReply,
   onEdit,
   onReact,
+  onJumpToReply,
 }: {
   item: DisplayItem;
   myCall: string | null;
   onReply: () => void;
   onEdit: () => void;
   onReact: (emoji: string, add: boolean) => void;
+  onJumpToReply: (() => void) | null;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const reactionGroups = new Map<string, ReactionEntry[]>();
@@ -47,11 +50,18 @@ export function MessageItem({
   }
 
   return (
-    <div className={`message-row ${item.grouped ? "grouped" : ""}${item.isMention ? " mention" : ""}`}>
+    <div
+      className={`message-row ${item.grouped ? "grouped" : ""}${item.isMention ? " mention" : ""}`}
+      data-msg-key={item.key}
+    >
       <AvatarImg callsign={item.fromCall} className="avatar" />
       <div className="message-content">
         {item.replyPreview && (
-          <div className="reply-quote">
+          <div
+            className={`reply-quote${onJumpToReply ? " clickable" : ""}`}
+            onClick={onJumpToReply ?? undefined}
+            title={onJumpToReply ? "Jump to original message" : undefined}
+          >
             <span className="reply-line" />
             <span>
               <strong>{fullDisplayFor(item.replyPreview.fromCall)}</strong> {item.replyPreview.body.slice(0, 80)}

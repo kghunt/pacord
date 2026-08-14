@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useConnectionStore } from "../state/connectionStore";
-import { fetchNodeProxy } from "../api/rest";
+import { fetchNodeProxy, fetchNodeCmd } from "../api/rest";
 import { sendAction } from "../api/socket";
 
 // ---------------------------------------------------------------------------
@@ -49,6 +49,107 @@ function normalizeHeard(raw: unknown): NormalizedHeard[] {
     count: r.Count !== undefined ? Number(r.Count) : r.count !== undefined ? Number(r.count) : null,
     lastHeard: r.LastHeard ?? r.lastHeard ?? r.last ?? r.ts ?? null,
   })).filter((h) => h.callsign && h.callsign !== "?");
+}
+
+// ---------------------------------------------------------------------------
+// XRouter /exec?cmd= plain-text parsers
+// ---------------------------------------------------------------------------
+
+function colMapFromHeader(header: string): Record<string, number> {
+  const map: Record<string, number> = {};
+  header.trim().split(/\s+/).forEach((tok, i) => { map[tok.toLowerCase()] = i; });
+  return map;
+}
+
+function parseXRouterNodes(text: string): NormalizedNode[] {
+  const lines = text.split(/\r?\n/);
+  let headerIdx = -1;
+  let colMap: Record<string, number> = {};
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (/(alias|callsign)/i.test(l) && /qual/i.test(l)) {
+      headerIdx = i;
+      colMap = colMapFromHeader(l);
+      break;
+    }
+  }
+
+  if (headerIdx < 0) return [];
+
+  const aliasIdx = colMap["alias"] ?? -1;
+  const callIdx = colMap["callsign"] ?? -1;
+  const qualIdx = colMap["quality"] ?? colMap["qual"] ?? -1;
+  const obsIdx = colMap["obsco"] ?? colMap["obs"] ?? colMap["obscount"] ?? -1;
+  const rttIdx = colMap["rtt(ms)"] ?? colMap["rtt"] ?? colMap["roundtrip"] ?? -1;
+
+  const result: NormalizedNode[] = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const l = lines[i]!.trim();
+    if (!l || /^[}\]>$#:;]/.test(l)) continue;
+    const tokens = l.split(/\s+/);
+    const alias = aliasIdx >= 0 ? (tokens[aliasIdx] ?? "") : "";
+    const callsign = callIdx >= 0 ? (tokens[callIdx] ?? "") : "";
+    const cs = (callsign || alias).toUpperCase();
+    if (!cs || cs === "?" || cs === "--") continue;
+    const qualStr = qualIdx >= 0 ? (tokens[qualIdx] ?? "0") : "0";
+    const obsStr = obsIdx >= 0 ? (tokens[obsIdx] ?? "0") : "0";
+    const rttStr = rttIdx >= 0 ? (tokens[rttIdx] ?? "") : "";
+    const rttMatch = rttStr.replace("--", "").match(/\d+/);
+    result.push({
+      callsign: cs,
+      alias: alias && alias !== callsign ? alias.toUpperCase() : "",
+      quality: parseInt(qualStr) || 0,
+      obscount: parseInt(obsStr) || 0,
+      rtt: rttMatch ? parseInt(rttMatch[0]!) : null,
+      via: null,
+    });
+  }
+  return result;
+}
+
+function parseXRouterMheard(text: string): NormalizedHeard[] {
+  const lines = text.split(/\r?\n/);
+  let headerIdx = -1;
+  let colMap: Record<string, number> = {};
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (/callsign/i.test(l) && /time/i.test(l)) {
+      headerIdx = i;
+      colMap = colMapFromHeader(l);
+      break;
+    }
+  }
+
+  if (headerIdx < 0) return [];
+
+  const csIdx = colMap["callsign"] ?? 0;
+  const dateIdx = colMap["date"] ?? 1;
+  const timeIdx = colMap["time"] ?? 2;
+  const framesIdx = colMap["frames"] ?? 3;
+  const typeIdx = colMap["type"] ?? -1;
+
+  const result: NormalizedHeard[] = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const l = lines[i]!.trim();
+    if (!l || /^[}\]>$#:;]/.test(l)) continue;
+    const tokens = l.split(/\s+/);
+    const callsign = (tokens[csIdx] ?? "").toUpperCase();
+    if (!callsign || callsign === "?") continue;
+    const date = tokens[dateIdx] ?? "";
+    const time = tokens[timeIdx] ?? "";
+    const framesStr = framesIdx >= 0 ? (tokens[framesIdx] ?? "") : "";
+    const type = typeIdx >= 0 ? (tokens[typeIdx] ?? null) : null;
+    result.push({
+      callsign,
+      port: null,
+      direction: type,
+      count: parseInt(framesStr) || null,
+      lastHeard: date && time ? `${date} ${time}` : null,
+    });
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,17 +278,34 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
     if (!profile?.adminPort) return;
 
     setNodes({ state: "loading" });
-    tryPaths(["/api/nodes", "/nodes", "/NetRom/Nodes", "/netrom/nodes"]).then((res) => {
+    tryPaths(["/api/nodes", "/nodes", "/NetRom/Nodes", "/netrom/nodes"]).then(async (res) => {
+      if (!("error" in res) && !("html" in res)) {
+        setNodes({ state: "ok", data: normalizeNodes(res.data) });
+        return;
+      }
+      // Fall back to XRouter /exec?cmd= terminal endpoint
+      try {
+        const { text } = await fetchNodeCmd("N");
+        const parsed = parseXRouterNodes(text);
+        if (parsed.length > 0) { setNodes({ state: "ok", data: parsed }); return; }
+      } catch { /* ignore */ }
       if ("error" in res) { setNodes({ state: "error", message: res.error }); return; }
-      if ("html" in res) { setNodes({ state: "html" }); return; }
-      setNodes({ state: "ok", data: normalizeNodes(res.data) });
+      setNodes({ state: "html" });
     });
 
     setHeard({ state: "loading" });
-    tryPaths(["/api/mheard", "/mheard", "/MHeard", "/Heard"]).then((res) => {
+    tryPaths(["/api/mheard", "/mheard", "/MHeard", "/Heard"]).then(async (res) => {
+      if (!("error" in res) && !("html" in res)) {
+        setHeard({ state: "ok", data: normalizeHeard(res.data) });
+        return;
+      }
+      try {
+        const { text } = await fetchNodeCmd("MH ALL");
+        const parsed = parseXRouterMheard(text);
+        if (parsed.length > 0) { setHeard({ state: "ok", data: parsed }); return; }
+      } catch { /* ignore */ }
       if ("error" in res) { setHeard({ state: "error", message: res.error }); return; }
-      if ("html" in res) { setHeard({ state: "html" }); return; }
-      setHeard({ state: "ok", data: normalizeHeard(res.data) });
+      setHeard({ state: "html" });
     });
   }, [profile?.id]);
 

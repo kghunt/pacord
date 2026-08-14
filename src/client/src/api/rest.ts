@@ -103,6 +103,9 @@ export const fetchVersion = () =>
 export const fetchNodeProxy = (path: string) =>
   fetch(`/api/node-proxy?path=${encodeURIComponent(path)}`).then((r) => json<unknown>(r));
 
+export const fetchNodeCmd = (cmd: string) =>
+  fetch(`/api/node-cmd?cmd=${encodeURIComponent(cmd)}`).then((r) => json<{ text: string; cmd: string }>(r));
+
 export const uploadAvatar = (imageBase64: string) =>
   fetch("/api/avatar/upload", {
     method: "POST",

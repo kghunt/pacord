@@ -6,7 +6,6 @@
  * broadcast to connected browsers.
  */
 import { EventEmitter } from "node:events";
-import { createHash } from "node:crypto";
 import type { ConnectProfile, ServerEvent, ReactionEntry } from "../../shared/types.js";
 import { emojiToWire } from "../../shared/emoji.js";
 import { RhpWebSocketTransport } from "./rhpWebSocket.js";
@@ -348,18 +347,13 @@ export class WpsClient extends EventEmitter {
   }
 
   async sendAvatar(imageBase64: string): Promise<void> {
-    // WPS expects the 16-byte MD5 hash of the image prepended to the payload —
-    // the same prefix it adds to outbound avatar frames. Without it, WPS treats
-    // the first 16 bytes of the JPEG as the hash, strips them, and distributes
-    // a truncated (corrupted) image to other clients.
-    const imageBytes = Buffer.from(imageBase64, "base64");
-    const md5 = createHash("md5").update(imageBytes).digest();
-    const withPrefix = Buffer.concat([md5, imageBytes]);
-    const ts = Date.now();
-    await this.send({ t: "a", a: withPrefix.toString("base64"), ts });
+    // WPS protocol: the 'a' field is a full data URI, e.g. "data:image/jpeg;base64,..."
+    // No MD5 or other prefix is needed — that was a misunderstanding.
+    const dataUri = `data:image/jpeg;base64,${imageBase64}`;
+    await this.send({ t: "a", a: dataUri });
     // WPS sends "ar" (ack) back to the uploader, not "a", so we would never
-    // receive our own avatar back. Store it locally immediately.
-    avatarsDb.upsertAvatar(this.appCall, withPrefix.toString("base64"), ts);
+    // receive our own avatar back. Store the clean base64 locally immediately.
+    avatarsDb.upsertAvatar(this.appCall, imageBase64, Math.floor(Date.now() / 1000));
     this.emitEvent({ type: "avatar", callsign: this.appCall });
   }
 
@@ -732,16 +726,21 @@ export class WpsClient extends EventEmitter {
       }
       case "a": {
         const ac = obj.ac as number | undefined;
-        const avatarB64 = obj.a as string | undefined;
-        const callsign = obj.c as string | undefined;
-        if (avatarB64 && callsign) {
-          const ts = typeof obj.ts === "number" ? obj.ts : this.nowMs();
-          avatarsDb.upsertAvatar(callsign, avatarB64, ts);
-          metaDb.bumpMeta("last_avatar_ts", ts);
-          this.emitEvent({ type: "avatar", callsign: callsign.toUpperCase() });
-        } else if (typeof ac === "number") {
+        if (typeof ac === "number") {
           this.emitEvent({ type: "avatar_count", count: ac });
+          break;
         }
+        const callsign = obj.c as string | undefined;
+        let avatarRaw = obj.a as string | undefined;
+        if (!avatarRaw || !callsign) break;
+        // Server sends a full data URI ("data:image/jpeg;base64,...").
+        // Strip the prefix before storing — everything up to and including the comma.
+        const commaIdx = avatarRaw.indexOf(",");
+        if (commaIdx >= 0) avatarRaw = avatarRaw.slice(commaIdx + 1);
+        const ts = typeof obj.ts === "number" ? obj.ts : Math.floor(Date.now() / 1000);
+        avatarsDb.upsertAvatar(callsign, avatarRaw, ts);
+        metaDb.bumpMeta("last_avatar_ts", ts);
+        this.emitEvent({ type: "avatar", callsign: callsign.toUpperCase() });
         break;
       }
       case "o": {

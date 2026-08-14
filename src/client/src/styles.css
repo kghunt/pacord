@@ -377,6 +377,29 @@ select {
   margin-bottom: 2px;
 }
 
+.reply-quote.clickable {
+  cursor: pointer;
+}
+
+.reply-quote.clickable:hover {
+  color: var(--text-normal);
+}
+
+.reply-quote.clickable:hover .reply-line {
+  border-color: var(--accent);
+}
+
+@keyframes jump-flash {
+  0%   { background: transparent; }
+  20%  { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  100% { background: transparent; }
+}
+
+.message-row.jump-highlight {
+  animation: jump-flash 1.4s ease-out forwards;
+  border-radius: 4px;
+}
+
 .reply-quote .reply-line {
   width: 20px;
   height: 10px;

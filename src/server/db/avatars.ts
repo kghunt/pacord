@@ -63,19 +63,10 @@ export function listAvatarCallsigns(): string[] {
   return rows.map((r) => r.callsign);
 }
 
-// Re-derives mime + strips any leading junk for rows stored before this
-// prefix-detection existed. Safe to run repeatedly.
-export function refixAllStoredAvatars(): number {
-  const rows = db.prepare("SELECT callsign, data_base64, ts FROM avatars").all() as unknown as Array<{
-    callsign: string;
-    data_base64: string;
-    ts: number;
-  }>;
-  let fixed = 0;
-  for (const row of rows) {
-    const before = row.data_base64;
-    const updated = upsertAvatar(row.callsign, before, row.ts);
-    if (updated.dataBase64 !== before) fixed++;
-  }
-  return fixed;
+// Delete avatars stored with the wrong MIME type — these were corrupted by a
+// bug that failed to strip the data URI prefix before base64 decoding.
+// Call once at startup; they will be re-downloaded automatically.
+export function purgeCorruptAvatars(): number {
+  const result = db.prepare("DELETE FROM avatars WHERE mime = 'application/octet-stream'").run();
+  return Number(result.changes);
 }

@@ -90,6 +90,14 @@ export function ChatPane() {
     });
   }, [activeTarget, messagesByPeer, postsByChannel, myCall]);
 
+  function handleJumpToReply(key: string) {
+    const el = messageListRef.current?.querySelector(`[data-msg-key="${CSS.escape(key)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    el.classList.add("jump-highlight");
+    el.addEventListener("animationend", () => el.classList.remove("jump-highlight"), { once: true });
+  }
+
   function handleReply(item: DisplayItem, raw: MessageRow | PostRow) {
     if (!activeTarget) return;
     if (activeTarget.type === "dm") {
@@ -238,6 +246,7 @@ export function ChatPane() {
             onReply={() => handleReply(item, rawRows[i]!)}
             onEdit={() => handleEdit(rawRows[i]!)}
             onReact={(emoji, add) => handleReact(rawRows[i]!, emoji, add)}
+            onJumpToReply={item.replyKey ? () => handleJumpToReply(item.replyKey!) : null}
           />
         ))}
       </div>
@@ -270,6 +279,7 @@ function toDisplayFromMessage(
     editTs: m.editTs,
     reactions: m.reactions,
     replyPreview: replySource ? { fromCall: replySource.fromCall, body: replySource.body } : null,
+    replyKey: replySource ? replySource.msgId : null,
     isMine,
     isMention: !isMine && myCall !== null,
     grouped,
@@ -297,6 +307,7 @@ function toDisplayFromPost(
       : p.replyFrom
         ? { fromCall: p.replyFrom, body: "(original message not loaded)" }
         : null,
+    replyKey: replySource ? String(replySource.ts) : null,
     isMine,
     isMention: !isMine && myCall !== null && (p.atCalls ?? []).includes(myCall),
     grouped,

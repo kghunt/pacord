@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { connectSocket, onServerEvent, sendAction } from "./socket";
+import { connectSocket, onServerEvent, onSocketOpen, sendAction } from "./socket";
 import { useConnectionStore, displayNameFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
 
@@ -99,8 +99,10 @@ function notify(title: string, body: string) {
 export function useBackendSocket(): void {
   useEffect(() => {
     connectSocket();
-    // Enable debug mode permanently so the rolling buffer always captures frames.
-    sendAction({ type: "set_debug", enabled: true });
+    // Enable debug mode every time the socket (re)opens — sendAction drops
+    // messages silently while the socket is still in CONNECTING state, so
+    // sending here rather than immediately after connectSocket() is required.
+    const unsubOpen = onSocketOpen(() => sendAction({ type: "set_debug", enabled: true }));
     const unsubscribe = onServerEvent((ev) => {
       if (ev.type === "debug_frame") {
         pushDebugFrame({ direction: ev.direction, frame: ev.frame, tsMs: ev.tsMs });
@@ -186,6 +188,6 @@ export function useBackendSocket(): void {
           break;
       }
     });
-    return unsubscribe;
+    return () => { unsubscribe(); unsubOpen(); };
   }, []);
 }

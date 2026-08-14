@@ -1,9 +1,11 @@
 import type { ClientAction, ServerEvent } from "@shared/types";
 
 type Listener = (ev: ServerEvent) => void;
+type VoidFn = () => void;
 
 let ws: WebSocket | null = null;
 const listeners = new Set<Listener>();
+const openListeners = new Set<VoidFn>();
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function wsUrl(): string {
@@ -14,6 +16,9 @@ function wsUrl(): string {
 export function connectSocket(): void {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   ws = new WebSocket(wsUrl());
+  ws.onopen = () => {
+    openListeners.forEach((fn) => fn());
+  };
   ws.onmessage = (ev) => {
     try {
       const data = JSON.parse(ev.data as string) as ServerEvent;
@@ -35,6 +40,12 @@ export function connectSocket(): void {
 export function onServerEvent(fn: Listener): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+/** Registers a callback to fire every time the backend WebSocket opens (including reconnects). */
+export function onSocketOpen(fn: VoidFn): () => void {
+  openListeners.add(fn);
+  return () => openListeners.delete(fn);
 }
 
 export function sendAction(action: ClientAction): void {

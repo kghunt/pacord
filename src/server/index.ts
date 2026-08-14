@@ -5,6 +5,7 @@ import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
 
 import "./db/index.js"; // ensures schema/seed run before anything else
+import { purgeCorruptAvatars } from "./db/avatars.js";
 import { registerProfileRoutes } from "./routes/profiles.js";
 import { registerChannelRoutes } from "./routes/channels.js";
 import { registerConnectionRoutes } from "./routes/connection.js";
@@ -56,6 +57,9 @@ app.setNotFoundHandler((req, reply) => {
   }
   reply.code(404).send({ error: "not found" });
 });
+
+const purged = purgeCorruptAvatars();
+if (purged > 0) console.log(`[startup] Purged ${purged} corrupt avatar(s) — they will re-download.`);
 
 autoConnectOnStartup();
 
