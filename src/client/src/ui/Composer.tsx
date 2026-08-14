@@ -46,6 +46,10 @@ export function Composer({
     }
   }, [editingText]);
 
+  useEffect(() => {
+    if (replyLabel !== null) ref.current?.focus();
+  }, [replyLabel]);
+
   function detectMention(value: string, selStart: number) {
     const before = value.slice(0, selStart);
     const match = before.match(/@(\w*)$/);
