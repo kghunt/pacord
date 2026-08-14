@@ -3,8 +3,8 @@ import { useConnectionStore } from "../state/connectionStore";
 import { sendAction } from "../api/socket";
 import { uploadAvatar } from "../api/rest";
 
-const MAX_PX = 128;
-const JPEG_QUALITY = 0.8;
+const MAX_PX = 40;
+const JPEG_QUALITY = 0.85;
 
 function formatBytes(n: number): string {
   return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`;
@@ -146,7 +146,7 @@ export function AvatarManager({ onClose }: { onClose: () => void }) {
         <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "20px 0" }} />
         <h3 style={{ margin: "0 0 4px", fontSize: 16 }}>Upload your avatar</h3>
         <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 12px" }}>
-          Image is resized to {MAX_PX}×{MAX_PX}px max and sent over the radio link as your avatar.
+          Image is resized to {MAX_PX}×{MAX_PX}px JPEG — the standard WPS avatar size — and sent over the radio link.
         </p>
 
         <input
