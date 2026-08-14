@@ -6,6 +6,7 @@
  * broadcast to connected browsers.
  */
 import { EventEmitter } from "node:events";
+import { createHash } from "node:crypto";
 import type { ConnectProfile, ServerEvent, ReactionEntry } from "../../shared/types.js";
 import { emojiToWire } from "../../shared/emoji.js";
 import { RhpWebSocketTransport } from "./rhpWebSocket.js";
@@ -346,7 +347,19 @@ export class WpsClient extends EventEmitter {
   }
 
   async sendAvatar(imageBase64: string): Promise<void> {
-    await this.send({ t: "a", a: imageBase64, ts: Date.now() });
+    // WPS expects the 16-byte MD5 hash of the image prepended to the payload —
+    // the same prefix it adds to outbound avatar frames. Without it, WPS treats
+    // the first 16 bytes of the JPEG as the hash, strips them, and distributes
+    // a truncated (corrupted) image to other clients.
+    const imageBytes = Buffer.from(imageBase64, "base64");
+    const md5 = createHash("md5").update(imageBytes).digest();
+    const withPrefix = Buffer.concat([md5, imageBytes]);
+    const ts = Date.now();
+    await this.send({ t: "a", a: withPrefix.toString("base64"), ts });
+    // WPS sends "ar" (ack) back to the uploader, not "a", so we would never
+    // receive our own avatar back. Store it locally immediately.
+    avatarsDb.upsertAvatar(this.appCall, withPrefix.toString("base64"), ts);
+    this.emitEvent({ type: "avatar", callsign: this.appCall });
   }
 
   async keepAlive(): Promise<void> {
