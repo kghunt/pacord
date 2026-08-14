@@ -14,7 +14,9 @@ type EditState = { text: string; target: { msgId?: string; postTs?: number } } |
 export function ChatPane() {
   const { activeTarget, setActiveTarget, channels, messagesByPeer, postsByChannel, peers } = useChatStore();
   const { connectionState, profiles } = useConnectionStore();
-  const myCall = profiles.find((p) => p.id === connectionState.activeProfileId)?.myCall.toUpperCase() ?? null;
+  const rawMyCall = profiles.find((p) => p.id === connectionState.activeProfileId)?.myCall.toUpperCase() ?? null;
+  // WPS strips SSIDs at the application layer; messages store bare callsigns.
+  const myCall = rawMyCall ? rawMyCall.split("-")[0]! : null;
 
   const mentions = useMemo<MentionCandidate[]>(() => {
     const seen = new Set<string>();

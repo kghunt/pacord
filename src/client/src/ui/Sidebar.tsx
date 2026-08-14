@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useConnectionStore, displayNameFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
+import { fetchVersion } from "../api/rest";
 
 export function Sidebar({
   onOpenSettings,
@@ -18,9 +19,14 @@ export function Sidebar({
 
   const activeProfile = profiles.find((p) => p.id === connectionState.activeProfileId);
 
+  const [version, setVersion] = useState<string | null>(null);
   const [notifPerm, setNotifPerm] = useState<NotificationPermission>(
     typeof Notification !== "undefined" ? Notification.permission : "denied"
   );
+
+  useEffect(() => {
+    fetchVersion().then((v) => setVersion(v.version)).catch(() => {});
+  }, []);
 
   async function requestNotifications() {
     if (typeof Notification === "undefined") return;
@@ -145,6 +151,11 @@ export function Sidebar({
           ⚙
         </button>
       </div>
+      {version && (
+        <div style={{ textAlign: "center", fontSize: 10, color: "var(--text-muted)", padding: "2px 0 4px" }}>
+          v{version}
+        </div>
+      )}
     </div>
   );
 }
