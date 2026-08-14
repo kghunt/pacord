@@ -164,7 +164,7 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
 
   const myCall = profile?.myCall.toUpperCase().split("-")[0] ?? null;
 
-  const [tab, setTab] = useState<Tab>("nodes");
+  const [tab, setTab] = useState<Tab>(profile?.adminPort ? "nodes" : "stats");
   const [statsLoading, setStatsLoading] = useState(false);
   const [nodes, setNodes] = useState<FetchResult<NormalizedNode[]>>({ state: "idle" });
   const [heard, setHeard] = useState<FetchResult<NormalizedHeard[]>>({ state: "idle" });
@@ -190,6 +190,16 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
       setHeard({ state: "ok", data: normalizeHeard(res.data) });
     });
   }, [profile?.id]);
+
+  // Auto-fetch WPS stats on open when landing on the stats tab (no admin port → default tab).
+  useEffect(() => {
+    if (tab !== "stats") return;
+    setStatsLoading(true);
+    sendAction({ type: "request_stats" });
+    const t = setTimeout(() => setStatsLoading(false), 8000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sortedNodes = useMemo(() => {
     if (nodes.state !== "ok") return [];
@@ -241,41 +251,29 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
     return { graphNodes, edges, positions };
   }, [nodes, myCall]);
 
-  if (!profile?.adminPort) {
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal" onClick={(e) => e.stopPropagation()}>
-          <h2>Node Info</h2>
-          <p className="modal-subtitle">
-            No admin/terminal port is configured. Edit your connection profile and set the <strong>Admin/Terminal port</strong> (usually 8086 for BPQ32).
-          </p>
-          <div className="form-actions">
-            <button className="btn" onClick={onClose}>Close</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal node-info-modal" onClick={(e) => e.stopPropagation()}>
         <div className="node-info-header">
           <div>
             <h2 style={{ margin: 0 }}>Node Info</h2>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-              {profile.host}:{profile.adminPort} &mdash; {profile.name}
-            </div>
+            {profile?.adminPort && (
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                {profile.host}:{profile.adminPort} &mdash; {profile.name}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <a
-              href={`http://${profile.host}:${profile.adminPort}/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn small"
-            >
-              Open admin ↗
-            </a>
+            {profile?.adminPort && (
+              <a
+                href={`http://${profile.host}:${profile.adminPort}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn small"
+              >
+                Open admin ↗
+              </a>
+            )}
             <button className="btn small" onClick={onClose}>Close</button>
           </div>
         </div>
@@ -300,17 +298,17 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="node-info-body">
-          {tab === "nodes" && (
-            <NodeTable
-              result={nodes}
-              sorted={sortedNodes}
-              sort={nodeSort}
-              onToggleSort={toggleSort}
-            />
+          {tab === "nodes" && (profile?.adminPort
+            ? <NodeTable result={nodes} sorted={sortedNodes} sort={nodeSort} onToggleSort={toggleSort} />
+            : <NoAdminPort />
           )}
-          {tab === "heard" && <HeardLog result={heard} />}
-          {tab === "map" && (
-            <MapTab layout={mapLayout} svgRef={mapSvgRef} w={MAP_W} h={MAP_H} />
+          {tab === "heard" && (profile?.adminPort
+            ? <HeardLog result={heard} />
+            : <NoAdminPort />
+          )}
+          {tab === "map" && (profile?.adminPort
+            ? <MapTab layout={mapLayout} svgRef={mapSvgRef} w={MAP_W} h={MAP_H} />
+            : <NoAdminPort />
           )}
           {tab === "stats" && <WpsStatsTab stats={wpsStats} loading={statsLoading && !wpsStats} />}
         </div>
@@ -332,13 +330,25 @@ function LoadState({ result }: { result: FetchResult<unknown> }) {
   if (result.state === "loading") return <p className="node-info-placeholder">Loading…</p>;
   if (result.state === "html") return (
     <p className="node-info-placeholder">
-      The node returned an HTML page instead of JSON. Make sure the admin port is set correctly
-      and the software supports a JSON API (BPQ32 ≥ some version, or XrPi).
+      The admin interface returned an HTML page — XRouter does not expose a JSON REST API, so
+      the Nodes, Heard log, and Network map tabs are unavailable.
+      Use the <strong>WPS Stats</strong> tab for server statistics, or
+      <strong> Open admin ↗</strong> above to browse the node directly.
     </p>
   );
   if (result.state === "error") return <p className="node-info-placeholder">{result.message}</p>;
   if (result.state === "idle") return <p className="node-info-placeholder">Not loaded yet.</p>;
   return null;
+}
+
+function NoAdminPort() {
+  return (
+    <p className="node-info-placeholder">
+      No admin port is configured. Edit your connection profile and set the
+      <strong> Admin/Terminal port</strong> to enable node data.
+      The <strong>WPS Stats</strong> tab works without an admin port.
+    </p>
+  );
 }
 
 function NodeTable({
