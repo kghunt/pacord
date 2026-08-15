@@ -13,7 +13,13 @@ function lastSeenText(ts: number): string {
   return `Last seen ${new Date(msTs).toLocaleDateString()}`;
 }
 
-export function OnlineUsersPane() {
+export function OnlineUsersPane({
+  mobileOpen,
+  onMobileClose,
+}: {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}) {
   const { connectionState, hams } = useConnectionStore();
   const { setActiveTarget, loadMessages } = useChatStore();
   const [offlineOpen, setOfflineOpen] = useState(false);
@@ -38,11 +44,15 @@ export function OnlineUsersPane() {
   function openDm(call: string) {
     setActiveTarget({ type: "dm", peer: call });
     loadMessages(call);
+    onMobileClose?.();
   }
 
   return (
-    <div className="online-pane">
-      <div className="online-pane-title">Online &mdash; {connectionState.onlineUsers.length}</div>
+    <div className={`online-pane${mobileOpen ? " mobile-open" : ""}`}>
+      <div className="online-pane-title" style={{ display: "flex", alignItems: "center" }}>
+        <span>Online &mdash; {connectionState.onlineUsers.length}</span>
+        {onMobileClose && <button className="icon-button" style={{ marginLeft: "auto", fontSize: 18 }} onClick={onMobileClose}>×</button>}
+      </div>
 
       <input
         className="online-search"

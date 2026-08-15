@@ -11,8 +11,8 @@ const GROUP_WINDOW_MS = 5 * 60 * 1000;
 type ReplyState = { label: string; target: { msgId?: string; postTs?: number; fromCall?: string } } | null;
 type EditState = { text: string; target: { msgId?: string; postTs?: number } } | null;
 
-export function ChatPane() {
-  const { activeTarget, setActiveTarget, channels, messagesByPeer, postsByChannel, peers } = useChatStore();
+export function ChatPane({ onToggleOnline }: { onToggleOnline?: () => void }) {
+  const { activeTarget, setActiveTarget, channels, messagesByPeer, postsByChannel, peers, unreadCounts } = useChatStore();
   const { connectionState, profiles } = useConnectionStore();
   const rawMyCall = profiles.find((p) => p.id === connectionState.activeProfileId)?.myCall.toUpperCase() ?? null;
   // WPS strips SSIDs at the application layer; messages store bare callsigns.
@@ -197,11 +197,17 @@ export function ChatPane() {
     activeTarget.type === "dm" ? displayNameFor(activeTarget.peer) : `# ${activeChannel?.name || activeTarget.cid}`;
   const subtitle = activeTarget.type === "channel" ? activeChannel?.description : activeTarget.peer;
 
+  const activeKey = activeTarget.type === "dm" ? activeTarget.peer : `channel:${activeTarget.cid}`;
+  const otherUnread = Object.entries(unreadCounts)
+    .filter(([k]) => k !== activeKey)
+    .reduce((sum, [, n]) => sum + n, 0);
+
   return (
     <div className="chat-pane">
       <div className="chat-header">
         <button className="mobile-back-btn icon-button" onClick={() => setActiveTarget(null)} title="Back">
           ‹
+          {otherUnread > 0 && <span className="mobile-back-badge">{otherUnread > 99 ? "99+" : otherUnread}</span>}
         </button>
         <span>{title}</span>
         {subtitle && <span className="subtitle">{subtitle}</span>}
@@ -247,6 +253,11 @@ export function ChatPane() {
               </button>
             </div>
           </div>
+        )}
+        {onToggleOnline && (
+          <button className="icon-button mobile-online-btn" onClick={onToggleOnline} title="Online users">
+            👥
+          </button>
         )}
       </div>
       <div

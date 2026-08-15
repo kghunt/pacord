@@ -20,6 +20,7 @@ export function Shell() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [nodeInfoOpen, setNodeInfoOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileOnlineOpen, setMobileOnlineOpen] = useState(false);
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; version: string } | null>(null);
   const [avatarCheckIntervalMinutes, setAvatarCheckIntervalMinutes] = useState(0);
@@ -130,8 +131,8 @@ export function Shell() {
         onOpenNodeInfo={() => setNodeInfoOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
       />
-      <ChatPane />
-      <OnlineUsersPane />
+      <ChatPane onToggleOnline={() => setMobileOnlineOpen((v) => !v)} />
+      <OnlineUsersPane mobileOpen={mobileOnlineOpen} onMobileClose={() => setMobileOnlineOpen(false)} />
       {settingsOpen && <ProfileManager onClose={() => setSettingsOpen(false)} />}
       {terminalOpen && <TerminalPanel onClose={() => setTerminalOpen(false)} />}
       {avatarsOpen && <AvatarManager onClose={() => setAvatarsOpen(false)} />}

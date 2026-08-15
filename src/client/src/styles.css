@@ -1322,6 +1322,27 @@ select {
   padding: 4px 8px;
   color: var(--text-muted);
   flex-shrink: 0;
+  position: relative;
+}
+
+.mobile-back-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 4px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.mobile-online-btn {
+  display: none;
+  margin-left: auto;
+  font-size: 18px;
 }
 
 .history-load-controls {
@@ -1345,13 +1366,29 @@ select {
     display: none;
   }
 
-  /* Chat pane fills the screen; online users pane is hidden */
+  /* Chat pane fills the screen; online users pane is hidden unless toggled */
   .online-pane {
     display: none;
   }
 
-  /* Reveal the back button */
+  .online-pane.mobile-open {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    width: 100%;
+    background: var(--bg-secondary);
+    overflow-y: auto;
+  }
+
+  /* Reveal the back button and people button */
   .mobile-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-online-btn {
     display: flex;
     align-items: center;
     justify-content: center;
