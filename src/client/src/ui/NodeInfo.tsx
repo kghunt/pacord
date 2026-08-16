@@ -238,20 +238,17 @@ type FetchResult<T> =
   | { state: "loading" }
   | { state: "ok"; data: T }
   | { state: "error"; message: string }
-  | { state: "html" };
+  | { state: "raw"; text: string; cmd: string };
 
-async function tryPaths(paths: string[]): Promise<{ data: unknown } | { html: true } | { error: string }> {
+async function tryJsonPaths(paths: string[]): Promise<{ data: unknown } | null> {
   for (const path of paths) {
     try {
       const raw = await fetchNodeProxy(path) as any;
-      if (raw?.htmlResponse) return { html: true };
-      if (raw?.error) continue; // try next path
+      if (raw?.htmlResponse || raw?.error) continue;
       return { data: raw };
-    } catch {
-      // try next
-    }
+    } catch { /* try next */ }
   }
-  return { error: "No known API endpoints responded with data. Check the admin port setting on your profile." };
+  return null;
 }
 
 export function NodeInfo({ onClose }: { onClose: () => void }) {
@@ -274,39 +271,61 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
     dir: -1,
   });
 
-  useEffect(() => {
+  const fetchNodes = async () => {
     if (!profile?.adminPort) return;
-
     setNodes({ state: "loading" });
-    tryPaths(["/api/nodes", "/nodes", "/NetRom/Nodes", "/netrom/nodes"]).then(async (res) => {
-      if (!("error" in res) && !("html" in res)) {
-        setNodes({ state: "ok", data: normalizeNodes(res.data) });
-        return;
-      }
-      // Fall back to XRouter /exec?cmd= terminal endpoint
+
+    // Try XRouter exec commands first (works for XRouter without JSON API)
+    for (const cmd of ["N", "NODES"]) {
       try {
-        const { text } = await fetchNodeCmd("N");
+        const { text } = await fetchNodeCmd(cmd);
+        if (!text.trim()) continue;
         const parsed = parseXRouterNodes(text);
         if (parsed.length > 0) { setNodes({ state: "ok", data: parsed }); return; }
-      } catch { /* ignore */ }
-      if ("error" in res) { setNodes({ state: "error", message: res.error }); return; }
-      setNodes({ state: "html" });
-    });
-
-    setHeard({ state: "loading" });
-    tryPaths(["/api/mheard", "/mheard", "/MHeard", "/Heard"]).then(async (res) => {
-      if (!("error" in res) && !("html" in res)) {
-        setHeard({ state: "ok", data: normalizeHeard(res.data) });
+        // Got output but couldn't parse — show raw so we can debug
+        setNodes({ state: "raw", text, cmd });
         return;
-      }
+      } catch { /* try next */ }
+    }
+
+    // Fall back to JSON paths (BPQ32 / other nodes)
+    const res = await tryJsonPaths(["/api/nodes", "/nodes", "/NetRom/Nodes", "/netrom/nodes"]);
+    if (res) {
+      const parsed = normalizeNodes(res.data);
+      if (parsed.length > 0) { setNodes({ state: "ok", data: parsed }); return; }
+    }
+
+    setNodes({ state: "error", message: "No response from exec commands or JSON API. Check that the Admin/Terminal port is correct and the node is reachable." });
+  };
+
+  const fetchHeard = async () => {
+    if (!profile?.adminPort) return;
+    setHeard({ state: "loading" });
+
+    for (const cmd of ["MH ALL", "MHEARD"]) {
       try {
-        const { text } = await fetchNodeCmd("MH ALL");
+        const { text } = await fetchNodeCmd(cmd);
+        if (!text.trim()) continue;
         const parsed = parseXRouterMheard(text);
         if (parsed.length > 0) { setHeard({ state: "ok", data: parsed }); return; }
-      } catch { /* ignore */ }
-      if ("error" in res) { setHeard({ state: "error", message: res.error }); return; }
-      setHeard({ state: "html" });
-    });
+        setHeard({ state: "raw", text, cmd });
+        return;
+      } catch { /* try next */ }
+    }
+
+    const res = await tryJsonPaths(["/api/mheard", "/mheard", "/MHeard", "/Heard"]);
+    if (res) {
+      const parsed = normalizeHeard(res.data);
+      if (parsed.length > 0) { setHeard({ state: "ok", data: parsed }); return; }
+    }
+
+    setHeard({ state: "error", message: "No response from exec commands or JSON API." });
+  };
+
+  useEffect(() => {
+    fetchNodes();
+    fetchHeard();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
   // Auto-fetch WPS stats on open when landing on the stats tab (no admin port → default tab).
@@ -383,14 +402,23 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {profile?.adminPort && (
-              <a
-                href={`http://${profile.host}:${profile.adminPort}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn small"
-              >
-                Open admin ↗
-              </a>
+              <>
+                <button
+                  className="btn small"
+                  onClick={() => { fetchNodes(); fetchHeard(); }}
+                  title="Re-run node commands"
+                >
+                  Refresh
+                </button>
+                <a
+                  href={`http://${profile.host}:${profile.adminPort}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn small"
+                >
+                  Open admin ↗
+                </a>
+              </>
             )}
             <button className="btn small" onClick={onClose}>Close</button>
           </div>
@@ -445,17 +473,26 @@ function SortArrow({ col, sort }: { col: string; sort: { col: string; dir: numbe
 }
 
 function LoadState({ result }: { result: FetchResult<unknown> }) {
+  const [rawOpen, setRawOpen] = useState(false);
   if (result.state === "loading") return <p className="node-info-placeholder">Loading…</p>;
-  if (result.state === "html") return (
-    <p className="node-info-placeholder">
-      The admin interface returned an HTML page — XRouter does not expose a JSON REST API, so
-      the Nodes, Heard log, and Network map tabs are unavailable.
-      Use the <strong>WPS Stats</strong> tab for server statistics, or
-      <strong> Open admin ↗</strong> above to browse the node directly.
-    </p>
-  );
   if (result.state === "error") return <p className="node-info-placeholder">{result.message}</p>;
   if (result.state === "idle") return <p className="node-info-placeholder">Not loaded yet.</p>;
+  if (result.state === "raw") return (
+    <div className="node-info-placeholder">
+      <p>
+        Got a response from <code>{result.cmd}</code> but couldn't parse the output into table rows.
+        {" "}The raw text is shown below — if it looks like a valid node table, please report the format so the parser can be updated.
+      </p>
+      <button className="btn small" onClick={() => setRawOpen((v) => !v)}>
+        {rawOpen ? "Hide raw output" : "Show raw output"}
+      </button>
+      {rawOpen && (
+        <pre style={{ marginTop: 8, fontSize: 11, background: "var(--bg-primary)", padding: 8, borderRadius: 4, overflowX: "auto", whiteSpace: "pre" }}>
+          {result.text}
+        </pre>
+      )}
+    </div>
+  );
   return null;
 }
 
