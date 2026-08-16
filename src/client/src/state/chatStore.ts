@@ -23,6 +23,7 @@ interface ChatStore {
   postsByChannel: Record<number, PostRow[]>;
   activeTarget: ChatTarget;
   unreadCounts: Record<string, number>;
+  firstUnreadMs: Record<string, number>;
   jumpToKey: string | null;
 
   setActiveTarget: (t: ChatTarget) => void;
@@ -47,6 +48,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   postsByChannel: {},
   activeTarget: null,
   unreadCounts: {},
+  firstUnreadMs: {},
   jumpToKey: null,
 
   setJumpToKey: (key) => set({ jumpToKey: key }),
@@ -56,6 +58,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((s) => ({
       activeTarget: t,
       unreadCounts: key ? { ...s.unreadCounts, [key]: 0 } : s.unreadCounts,
+      firstUnreadMs: key ? { ...s.firstUnreadMs, [key]: 0 } : s.firstUnreadMs,
     }));
   },
 
@@ -114,5 +117,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     })),
 
   incrementUnread: (key) =>
-    set((s) => ({ unreadCounts: { ...s.unreadCounts, [key]: (s.unreadCounts[key] ?? 0) + 1 } })),
+    set((s) => ({
+      unreadCounts: { ...s.unreadCounts, [key]: (s.unreadCounts[key] ?? 0) + 1 },
+      firstUnreadMs: s.firstUnreadMs[key] ? s.firstUnreadMs : { ...s.firstUnreadMs, [key]: Date.now() },
+    })),
 }));

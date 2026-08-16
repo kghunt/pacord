@@ -51,7 +51,9 @@ function isUserIdle(): boolean {
 // channel is currently open — i.e. the window has lost focus or the user
 // hasn't touched the keyboard/mouse for 5 minutes.
 function userIsAway(): boolean {
-  return document.hidden || !document.hasFocus() || isUserIdle();
+  // document.hasFocus() is omitted — it's unreliable on mobile (returns false
+  // when the virtual keyboard is open, even though the user is actively typing).
+  return document.hidden || isUserIdle();
 }
 
 // Register once at module load — passive so they never block scroll/input.

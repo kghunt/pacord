@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { MessageRow, PostRow } from "@shared/types";
 import { useChatStore } from "../state/chatStore";
 import { useConnectionStore, displayNameFor } from "../state/connectionStore";
@@ -12,7 +12,7 @@ type ReplyState = { label: string; target: { msgId?: string; postTs?: number; fr
 type EditState = { text: string; target: { msgId?: string; postTs?: number } } | null;
 
 export function ChatPane({ onToggleOnline }: { onToggleOnline?: () => void }) {
-  const { activeTarget, setActiveTarget, channels, messagesByPeer, postsByChannel, peers, unreadCounts } = useChatStore();
+  const { activeTarget, setActiveTarget, channels, messagesByPeer, postsByChannel, peers, unreadCounts, firstUnreadMs } = useChatStore();
   const { connectionState, profiles } = useConnectionStore();
   const rawMyCall = profiles.find((p) => p.id === connectionState.activeProfileId)?.myCall.toUpperCase() ?? null;
   // WPS strips SSIDs at the application layer; messages store bare callsigns.
@@ -202,6 +202,9 @@ export function ChatPane({ onToggleOnline }: { onToggleOnline?: () => void }) {
     .filter(([k]) => k !== activeKey)
     .reduce((sum, [, n]) => sum + n, 0);
 
+  const threshold = firstUnreadMs[activeKey] ?? 0;
+  const dividerIndex = threshold > 0 ? items.findIndex((it) => it.tsMs >= threshold) : -1;
+
   return (
     <div className="chat-pane">
       <div className="chat-header">
@@ -270,15 +273,21 @@ export function ChatPane({ onToggleOnline }: { onToggleOnline?: () => void }) {
       >
         {items.length === 0 && <div className="message-empty">No messages yet — say hello!</div>}
         {items.map((item, i) => (
-          <MessageItem
-            key={item.key}
-            item={item}
-            myCall={myCall}
-            onReply={() => handleReply(item, rawRows[i]!)}
-            onEdit={() => handleEdit(rawRows[i]!)}
-            onReact={(emoji, add) => handleReact(rawRows[i]!, emoji, add)}
-            onJumpToReply={item.replyKey ? () => handleJumpToReply(item.replyKey!) : null}
-          />
+          <Fragment key={item.key}>
+            {i === dividerIndex && (
+              <div className="new-messages-divider">
+                <span>New messages</span>
+              </div>
+            )}
+            <MessageItem
+              item={item}
+              myCall={myCall}
+              onReply={() => handleReply(item, rawRows[i]!)}
+              onEdit={() => handleEdit(rawRows[i]!)}
+              onReact={(emoji, add) => handleReact(rawRows[i]!, emoji, add)}
+              onJumpToReply={item.replyKey ? () => handleJumpToReply(item.replyKey!) : null}
+            />
+          </Fragment>
         ))}
       </div>
       <Composer

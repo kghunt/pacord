@@ -294,6 +294,27 @@ select {
   font-size: 14px;
 }
 
+.new-messages-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.new-messages-divider::before,
+.new-messages-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--danger);
+  opacity: 0.4;
+}
+
 .message-row {
   display: flex;
   gap: 12px;
@@ -1373,6 +1394,7 @@ select {
 
   .online-pane.mobile-open {
     display: flex;
+    flex-direction: column;
     position: fixed;
     inset: 0;
     z-index: 60;
