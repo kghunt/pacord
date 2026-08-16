@@ -8,7 +8,9 @@ const ALLOWED_CMDS = new Set(["N", "NODES", "MH", "MHEARD", "R", "ROUTES", "P", 
 function stripHtml(html: string): string {
   // Prefer <pre> content as XRouter wraps output in it.
   const preMatch = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
-  const raw = preMatch ? preMatch[1]! : html.replace(/<[^>]+>/g, "\n");
+  // Strip any inner HTML tags that XRouter embeds within the <pre> block
+  // (e.g. clickable <A HREF> links around node names in the N/NODES output).
+  const raw = preMatch ? preMatch[1]!.replace(/<[^>]+>/g, "") : html.replace(/<[^>]+>/g, "\n");
   return raw
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")

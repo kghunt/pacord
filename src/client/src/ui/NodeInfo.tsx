@@ -75,37 +75,59 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
     }
   }
 
-  if (headerIdx < 0) return [];
+  if (headerIdx >= 0) {
+    const aliasIdx = colMap["alias"] ?? -1;
+    const callIdx = colMap["callsign"] ?? -1;
+    const qualIdx = colMap["quality"] ?? colMap["qual"] ?? -1;
+    const obsIdx = colMap["obsco"] ?? colMap["obs"] ?? colMap["obscount"] ?? -1;
+    const rttIdx = colMap["rtt(ms)"] ?? colMap["rtt"] ?? colMap["roundtrip"] ?? -1;
 
-  const aliasIdx = colMap["alias"] ?? -1;
-  const callIdx = colMap["callsign"] ?? -1;
-  const qualIdx = colMap["quality"] ?? colMap["qual"] ?? -1;
-  const obsIdx = colMap["obsco"] ?? colMap["obs"] ?? colMap["obscount"] ?? -1;
-  const rttIdx = colMap["rtt(ms)"] ?? colMap["rtt"] ?? colMap["roundtrip"] ?? -1;
-
-  const result: NormalizedNode[] = [];
-  for (let i = headerIdx + 1; i < lines.length; i++) {
-    const l = lines[i]!.trim();
-    if (!l || /^[}\]>$#:;]/.test(l)) continue;
-    const tokens = l.split(/\s+/);
-    const alias = aliasIdx >= 0 ? (tokens[aliasIdx] ?? "") : "";
-    const callsign = callIdx >= 0 ? (tokens[callIdx] ?? "") : "";
-    const cs = (callsign || alias).toUpperCase();
-    if (!cs || cs === "?" || cs === "--") continue;
-    const qualStr = qualIdx >= 0 ? (tokens[qualIdx] ?? "0") : "0";
-    const obsStr = obsIdx >= 0 ? (tokens[obsIdx] ?? "0") : "0";
-    const rttStr = rttIdx >= 0 ? (tokens[rttIdx] ?? "") : "";
-    const rttMatch = rttStr.replace("--", "").match(/\d+/);
-    result.push({
-      callsign: cs,
-      alias: alias && alias !== callsign ? alias.toUpperCase() : "",
-      quality: parseInt(qualStr) || 0,
-      obscount: parseInt(obsStr) || 0,
-      rtt: rttMatch ? parseInt(rttMatch[0]!) : null,
-      via: null,
-    });
+    const result: NormalizedNode[] = [];
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      const l = lines[i]!.trim();
+      if (!l || /^[}\]>$#:;]/.test(l)) continue;
+      const tokens = l.split(/\s+/);
+      const alias = aliasIdx >= 0 ? (tokens[aliasIdx] ?? "") : "";
+      const callsign = callIdx >= 0 ? (tokens[callIdx] ?? "") : "";
+      const cs = (callsign || alias).toUpperCase();
+      if (!cs || cs === "?" || cs === "--") continue;
+      const qualStr = qualIdx >= 0 ? (tokens[qualIdx] ?? "0") : "0";
+      const obsStr = obsIdx >= 0 ? (tokens[obsIdx] ?? "0") : "0";
+      const rttStr = rttIdx >= 0 ? (tokens[rttIdx] ?? "") : "";
+      const rttMatch = rttStr.replace("--", "").match(/\d+/);
+      result.push({
+        callsign: cs,
+        alias: alias && alias !== callsign ? alias.toUpperCase() : "",
+        quality: parseInt(qualStr) || 0,
+        obscount: parseInt(obsStr) || 0,
+        rtt: rttMatch ? parseInt(rttMatch[0]!) : null,
+        via: null,
+      });
+    }
+    return result;
   }
-  return result;
+
+  // Fallback: XRouter compact format — "ALIAS:CALLSIGN" pairs, multiple per
+  // line, no header row. Inner <A> tags are stripped server-side but we also
+  // skip any stray tag fragments here just in case.
+  // e.g.  BAMPTN:MB7NBA   BATH:GB7NBH   BAUCHT:ZL2BAU-8
+  const TOKEN_RE = /^([A-Za-z0-9#][A-Za-z0-9#-]{0,10}):([A-Za-z0-9][A-Za-z0-9-]{1,9})$/;
+  const compact: NormalizedNode[] = [];
+  const seen = new Set<string>();
+  for (const line of lines) {
+    const stripped = line.trim();
+    if (!stripped || /}\s*Nodes:/i.test(stripped) || /\d+\s+nodes?\s+found/i.test(stripped)) continue;
+    for (const tok of stripped.split(/\s+/)) {
+      const m = tok.match(TOKEN_RE);
+      if (!m) continue;
+      const alias = m[1]!.toUpperCase();
+      const callsign = m[2]!.toUpperCase();
+      if (seen.has(callsign)) continue;
+      seen.add(callsign);
+      compact.push({ callsign, alias, quality: 0, obscount: 0, rtt: null, via: null });
+    }
+  }
+  return compact;
 }
 
 function parseXRouterMheard(text: string): NormalizedHeard[] {

@@ -327,8 +327,8 @@ export class WpsClient extends EventEmitter {
       messagesDb.upsertMessageEmoji(msgId, wire, this.appCall, ets);
     } else {
       messagesDb.removeMessageEmoji(msgId, wire, this.appCall);
-      metaDb.bumpMeta("last_emoji", ets);
     }
+    metaDb.bumpMeta("last_emoji", ets);
     const row = messagesDb.lookupMessageRow(msgId);
     if (row) this.emitEvent({ type: "message", row });
   }
@@ -399,7 +399,11 @@ export class WpsClient extends EventEmitter {
           if (this.debugEnabled) {
             this.emitEvent({ type: "debug_frame", direction: "in", frame: JSON.stringify(obj), tsMs: Date.now() });
           }
-          this.dispatch(obj as Record<string, unknown>);
+          try {
+            this.dispatch(obj as Record<string, unknown>);
+          } catch (exc) {
+            console.error("[wpsClient] dispatch error (frame skipped):", (exc as Error).message, obj);
+          }
         }
       }
     } catch (exc) {
