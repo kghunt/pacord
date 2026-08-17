@@ -124,6 +124,49 @@ If WPS isn't hosted on the node you connect through, the connect script needs to
 - Hop 1: empty command, wait for the node's banner text (e.g. `"Type ? for list of other commands"`)
 - Hop 2: `C <WPS-host-callsign>`, wait for `"*** Connected"`
 
+## Push notifications (ntfy)
+
+Pacord can send push notifications to your phone using [ntfy](https://ntfy.sh) — a free, open-source pub/sub notification service that works without HTTPS, browser permissions, or any cloud account. Notifications fire server-side, so they reach you even when the app isn't open in any browser.
+
+### Quick setup
+
+**1. Install the ntfy app** on your phone — [Android (Play / F-Droid)](https://ntfy.sh/docs/subscribe/phone/) or [iOS](https://apps.apple.com/us/app/ntfy/id1625396347).
+
+**2. Pick a topic URL.** The simplest option is the free public server — just choose a long random name so nobody else stumbles onto it:
+
+```
+https://ntfy.sh/pacord-m0abc-3f8a2c
+```
+
+Or self-host ntfy on your Raspberry Pi alongside Pacord:
+
+```yaml
+# add to your docker-compose.yml
+  ntfy:
+    image: binwiederhier/ntfy
+    command: serve
+    ports:
+      - "2586:80"
+    volumes:
+      - ntfy-data:/var/lib/ntfy
+    restart: unless-stopped
+
+volumes:
+  ntfy-data:
+```
+
+Then your topic URL would be `http://192.168.1.50:2586/pacord-alerts` (use your Pi's LAN IP).
+
+**3. Subscribe** — in the ntfy app tap **+** and enter just the topic name (e.g. `pacord-m0abc-3f8a2c` for ntfy.sh, or the full URL for self-hosted).
+
+**4. Configure Pacord** — open ⚙ → **Server Settings**, paste the full topic URL into **ntfy topic URL**, and click **Save settings**. The next incoming DM or channel post triggers a test you can watch live.
+
+### Access tokens (optional)
+
+If you want the topic to be private on a self-hosted ntfy server, create an access token under **Account → Access tokens** in the ntfy web UI, and paste it into the **Access token** field in Pacord's settings. Pacord sends it as a `Bearer` token on every request.
+
+The public ntfy.sh server doesn't require tokens for basic use, though you can create a free account there too for reserved topics.
+
 ## Channel subscriptions
 
 Viewing a channel only shows locally cached history — it does **not** subscribe you. Subscribing (the explicit button in the channel header) is what triggers a live feed and a history backfill, since that pulls real data over the radio link. Same principle applies to on-demand "Load history" for a specific message count.

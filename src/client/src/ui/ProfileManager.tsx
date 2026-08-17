@@ -2,20 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import type { AxLevel, ConnectProfile, Engine, HopStep, NewConnectProfile, Transport } from "@shared/types";
 import { defaultPort, defaultRadioPort, defaultRemote } from "@shared/engineDefaults";
 import { useConnectionStore } from "../state/connectionStore";
-import { fetchSettings, saveSettings } from "../api/rest";
+import { fetchSettings, saveSettings, type AppSettings } from "../api/rest";
 
 export function ProfileManager({ onClose }: { onClose: () => void }) {
   const { profiles, connectionState, createProfile, deleteProfile, connect, disconnect } = useConnectionStore();
   const [editing, setEditing] = useState<ConnectProfile | "new" | null>(null);
   const [idleMinutes, setIdleMinutes] = useState<number>(0);
   const [avatarCheckMinutes, setAvatarCheckMinutes] = useState<number>(0);
+  const [ntfyUrl, setNtfyUrl] = useState("");
+  const [ntfyToken, setNtfyToken] = useState("");
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   useEffect(() => {
-    fetchSettings().then((s) => {
+    fetchSettings().then((s: AppSettings) => {
       setIdleMinutes(s.idleDisconnectMinutes);
       setAvatarCheckMinutes(s.avatarCheckIntervalMinutes);
+      setNtfyUrl(s.ntfyUrl);
+      setNtfyToken(s.ntfyToken);
     }).catch(() => {});
   }, []);
 
@@ -23,7 +27,12 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
     setSettingsSaving(true);
     setSettingsSaved(false);
     try {
-      await saveSettings({ idleDisconnectMinutes: idleMinutes, avatarCheckIntervalMinutes: avatarCheckMinutes });
+      await saveSettings({
+        idleDisconnectMinutes: idleMinutes,
+        avatarCheckIntervalMinutes: avatarCheckMinutes,
+        ntfyUrl,
+        ntfyToken,
+      });
       setSettingsSaved(true);
     } finally {
       setSettingsSaving(false);
@@ -132,6 +141,36 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
             Periodically asks WPS how many new avatars are available. A banner appears in the app if any are
             waiting — click it to open the avatar download panel.
           </p>
+
+          <h4 style={{ margin: "16px 0 8px" }}>Push notifications via ntfy</h4>
+          <p className="form-hint" style={{ marginTop: 0 }}>
+            ntfy is a free, self-hostable service that delivers push notifications to your phone without needing
+            HTTPS or browser permissions. Install the ntfy app, subscribe to your topic, then paste the full topic
+            URL here. Leave blank to disable.
+          </p>
+          <div className="form-row" style={{ marginBottom: 6 }}>
+            <label>ntfy topic URL</label>
+            <input
+              type="url"
+              placeholder="https://ntfy.sh/my-pacord-abc123"
+              value={ntfyUrl}
+              onChange={(e) => { setNtfyUrl(e.target.value); setSettingsSaved(false); }}
+            />
+          </div>
+          <div className="form-row" style={{ marginBottom: 6 }}>
+            <label>Access token (optional)</label>
+            <input
+              type="password"
+              placeholder="tk_xxxxxxxxxxxx"
+              value={ntfyToken}
+              onChange={(e) => { setNtfyToken(e.target.value); setSettingsSaved(false); }}
+            />
+            <p className="form-hint" style={{ marginTop: 4 }}>
+              Only needed if your topic is protected. For a private self-hosted ntfy server, generate one in
+              ntfy's web UI under Account &rarr; Access tokens.
+            </p>
+          </div>
+
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
             <button className="btn small primary" onClick={saveAllSettings} disabled={settingsSaving}>
               {settingsSaving ? "Saving…" : "Save settings"}

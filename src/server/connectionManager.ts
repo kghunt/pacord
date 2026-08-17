@@ -10,6 +10,8 @@ import * as profilesDb from "./db/profiles.js";
 import * as metaDb from "./db/meta.js";
 import { WpsClient } from "./protocol/wpsClient.js";
 import { broadcast, broadcastDebug, incrementUnread } from "./wsHub.js";
+import { sendNtfy } from "./ntfy.js";
+import * as channelsDb from "./db/channels.js";
 
 const ACTIVE_PROFILE_META_KEY = "active_profile_id";
 const RETRY_INITIAL_MS = 2000;
@@ -63,8 +65,11 @@ export function connectProfile(id: number): void {
     // the badge without having received the original WebSocket push.
     if (ev.type === "post" && ev.row.fromCall !== myCall) {
       incrementUnread(`channel:${ev.row.cid}`);
+      const chName = channelsDb.listChannels().find((c) => c.cid === ev.row.cid)?.name ?? `channel-${ev.row.cid}`;
+      sendNtfy(`#${chName}`, `${ev.row.fromCall}: ${ev.row.body}`);
     } else if (ev.type === "message" && ev.row.fromCall !== myCall) {
       incrementUnread(ev.row.fromCall);
+      sendNtfy(`DM from ${ev.row.fromCall}`, ev.row.body, "envelope");
     }
     broadcast(ev);
   });

@@ -84,17 +84,22 @@ export const fetchPosts = (cid: number) => fetch(`/api/posts/${cid}`).then((r) =
 
 export const fetchRoster = () => fetch("/api/roster").then((r) => json<{ online: string[]; hams: HamInfo[] }>(r));
 
-export const fetchSettings = () =>
-  fetch("/api/settings").then((r) =>
-    json<{ idleDisconnectMinutes: number; avatarCheckIntervalMinutes: number }>(r)
-  );
+export interface AppSettings {
+  idleDisconnectMinutes: number;
+  avatarCheckIntervalMinutes: number;
+  ntfyUrl: string;
+  ntfyToken: string;
+}
 
-export const saveSettings = (body: { idleDisconnectMinutes: number; avatarCheckIntervalMinutes: number }) =>
+export const fetchSettings = () =>
+  fetch("/api/settings").then((r) => json<AppSettings>(r));
+
+export const saveSettings = (body: AppSettings) =>
   fetch("/api/settings", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }).then((r) => json<{ idleDisconnectMinutes: number; avatarCheckIntervalMinutes: number }>(r));
+  }).then((r) => json<AppSettings>(r));
 
 export const fetchVersion = () =>
   fetch("/api/version").then((r) =>
