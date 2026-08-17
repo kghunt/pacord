@@ -65,8 +65,19 @@ export function connectProfile(id: number): void {
     // the badge without having received the original WebSocket push.
     if (ev.type === "post" && ev.row.fromCall !== myCall) {
       incrementUnread(`channel:${ev.row.cid}`);
-      const chName = channelsDb.listChannels().find((c) => c.cid === ev.row.cid)?.name ?? `channel-${ev.row.cid}`;
-      sendNtfy(`#${chName}`, `${ev.row.fromCall}: ${ev.row.body}`);
+      const level = channelsDb.getChannelNtfyLevel(ev.row.cid);
+      if (level !== "none") {
+        const isMention = (ev.row.atCalls ?? []).includes(myCall);
+        const isReply = ev.row.replyFrom === myCall;
+        const shouldNotify =
+          level === "all" ||
+          (level === "mentions" && isMention) ||
+          (level === "replies" && (isReply || isMention));
+        if (shouldNotify) {
+          const chName = channelsDb.listChannels().find((c) => c.cid === ev.row.cid)?.name ?? `channel-${ev.row.cid}`;
+          sendNtfy(`#${chName}`, `${ev.row.fromCall}: ${ev.row.body}`);
+        }
+      }
     } else if (ev.type === "message" && ev.row.fromCall !== myCall) {
       incrementUnread(ev.row.fromCall);
       sendNtfy(`DM from ${ev.row.fromCall}`, ev.row.body, "envelope");

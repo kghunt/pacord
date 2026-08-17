@@ -47,11 +47,14 @@ export interface ConnectProfile {
 
 export type NewConnectProfile = Omit<ConnectProfile, "id">;
 
+export type NtfyLevel = "none" | "mentions" | "replies" | "all";
+
 export interface ChannelInfo {
   cid: number;
   name: string;
   description: string;
   subscribed: boolean;
+  ntfyLevel: NtfyLevel;
 }
 
 export interface ReactionEntry {

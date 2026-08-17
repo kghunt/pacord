@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import * as metaDb from "../db/meta.js";
+import { sendNtfy } from "../ntfy.js";
 
 export async function registerSettingsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/settings", async () => ({
@@ -34,5 +35,15 @@ export async function registerSettingsRoutes(app: FastifyInstance): Promise<void
       ntfyUrl: typeof ntfyUrl === "string" ? ntfyUrl.trim() : "",
       ntfyToken: typeof ntfyToken === "string" ? ntfyToken.trim() : "",
     };
+  });
+
+  app.post("/api/ntfy-test", async (_req, reply) => {
+    const url = metaDb.getMeta("ntfy_url")?.trim();
+    if (!url) {
+      reply.code(400);
+      return { error: "No ntfy topic URL configured." };
+    }
+    await sendNtfy("Pacord test notification", "Your ntfy integration is working.", "white_check_mark");
+    return { ok: true };
   });
 }

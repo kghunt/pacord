@@ -6,6 +6,7 @@ import type {
   HamInfo,
   MessageRow,
   NewConnectProfile,
+  NtfyLevel,
   PostRow,
   SearchResult,
 } from "@shared/types";
@@ -116,6 +117,16 @@ export const fetchDebugFrames = () =>
   fetch("/api/debug-frames").then((r) =>
     json<Array<{ direction: "in" | "out"; frame: string; tsMs: number }>>(r)
   );
+
+export const setChannelNtfyLevel = (cid: number, level: NtfyLevel) =>
+  fetch(`/api/channels/${cid}/ntfy-level`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ level }),
+  }).then((r) => json<{ cid: number; ntfyLevel: NtfyLevel }>(r));
+
+export const testNtfy = () =>
+  fetch("/api/ntfy-test", { method: "POST" }).then((r) => json<{ ok: true }>(r));
 
 export const searchHistory = (q: string) =>
   fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => json<SearchResult[]>(r));

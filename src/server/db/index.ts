@@ -24,6 +24,7 @@ function ensureColumn(table: string, column: string, ddl: string): void {
 ensureColumn("connect_profiles", "ax_level", "ax_level TEXT NOT NULL DEFAULT 'L2'");
 ensureColumn("connect_profiles", "response_timeout_ms", "response_timeout_ms INTEGER NOT NULL DEFAULT 30000");
 ensureColumn("connect_profiles", "admin_port", "admin_port INTEGER DEFAULT 8086");
+ensureColumn("channels", "ntfy_level", "ntfy_level TEXT NOT NULL DEFAULT 'all'");
 
 // Seed the default channel directory on first run only — never touch it
 // again so user edits (add/remove/rename) survive restarts.
