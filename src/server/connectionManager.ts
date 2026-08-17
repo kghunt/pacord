@@ -12,7 +12,6 @@ import { WpsClient } from "./protocol/wpsClient.js";
 import { broadcast, broadcastDebug, incrementUnread } from "./wsHub.js";
 import { sendNtfy } from "./ntfy.js";
 import * as channelsDb from "./db/channels.js";
-import * as metaDb from "./db/meta.js";
 
 const ACTIVE_PROFILE_META_KEY = "active_profile_id";
 const RETRY_INITIAL_MS = 2000;
