@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useConnectionStore } from "../state/connectionStore";
 import { fetchNodeProxy, fetchNodeCmd } from "../api/rest";
 import { sendAction } from "../api/socket";
@@ -10,8 +10,8 @@ import { sendAction } from "../api/socket";
 interface NormalizedNode {
   callsign: string;
   alias: string;
-  quality: number;   // 0–255
-  obscount: number;  // 0–6; lower = more obsolete
+  quality: number;
+  obscount: number;
   rtt: number | null;
   via: string | null;
 }
@@ -22,6 +22,13 @@ interface NormalizedHeard {
   direction: string | null;
   count: number | null;
   lastHeard: string | null;
+}
+
+interface RouteEntry {
+  callsign: string;
+  port: number | null;
+  quality: number;
+  obscount: number;
 }
 
 function normalizeNodes(raw: unknown): NormalizedNode[] {
@@ -68,7 +75,6 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
 
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]!;
-    // Match "qual", "quality", "qua", or "qlty" as column header variants.
     if (/(alias|callsign)/i.test(l) && /\b(qual|qlty|qua)\b/i.test(l)) {
       headerIdx = i;
       colMap = colMapFromHeader(l);
@@ -83,8 +89,6 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
     const obsIdx = colMap["obsco"] ?? colMap["obs"] ?? colMap["obscount"] ?? -1;
     const rttIdx = colMap["rtt(ms)"] ?? colMap["rtt"] ?? colMap["roundtrip"] ?? -1;
 
-    // Some XRouter versions emit "alias:callsign" as a single combined header
-    // token — find it so we can split data rows at the colon.
     let combinedColIdx = -1;
     if (aliasIdx < 0 && callIdx < 0) {
       for (const [k, v] of Object.entries(colMap)) {
@@ -126,21 +130,17 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
         via: null,
       });
     }
-    // Only return if we got results — otherwise fall through to compact parser.
     if (result.length > 0) return result;
   }
 
-  // Fallback: XRouter compact format — "ALIAS:CALLSIGN" pairs, multiple per
-  // line, no header row. Inner <A> tags are stripped server-side but we also
-  // skip any stray tag fragments here just in case.
-  // e.g.  BAMPTN:MB7NBA   BATH:GB7NBH   BAUCHT:ZL2BAU-8
+  // Fallback: XRouter compact format — "ALIAS:CALLSIGN" pairs, multiple per line.
   const TOKEN_RE = /^([A-Za-z0-9#][A-Za-z0-9#-]{0,10}):([A-Za-z0-9][A-Za-z0-9-]{1,9})$/;
   const compact: NormalizedNode[] = [];
   const seen = new Set<string>();
   for (const line of lines) {
     const stripped = line.trim();
     if (!stripped || /}\s*Nodes:/i.test(stripped) || /\d+\s+nodes?\s+found/i.test(stripped)) continue;
-    if (/(alias|callsign)/i.test(stripped)) continue; // skip header lines
+    if (/(alias|callsign)/i.test(stripped)) continue;
     for (const tok of stripped.split(/\s+/)) {
       const m = tok.match(TOKEN_RE);
       if (!m) continue;
@@ -152,6 +152,62 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
     }
   }
   return compact;
+}
+
+function parseXRouterRoutes(text: string): RouteEntry[] {
+  const lines = text.split(/\r?\n/);
+
+  // Try tabular format with a header row
+  let headerIdx = -1;
+  let colMap: Record<string, number> = {};
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (/callsign/i.test(l) && /qual/i.test(l)) {
+      headerIdx = i;
+      colMap = colMapFromHeader(l);
+      break;
+    }
+  }
+
+  if (headerIdx >= 0) {
+    const callIdx = colMap["callsign"] ?? 0;
+    const qualIdx = colMap["quality"] ?? colMap["qual"] ?? colMap["qlty"] ?? -1;
+    const obsIdx = colMap["obsco"] ?? colMap["obs"] ?? colMap["obscount"] ?? -1;
+    const portIdx = colMap["port"] ?? -1;
+
+    const result: RouteEntry[] = [];
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      const l = lines[i]!.trim();
+      if (!l || /^[-=]{3,}/.test(l)) continue;
+      const tokens = l.split(/\s+/);
+      const callsign = (tokens[callIdx] ?? "").toUpperCase();
+      if (!callsign || callsign === "?") continue;
+      const quality = qualIdx >= 0 ? parseInt(tokens[qualIdx] ?? "0") || 0 : 0;
+      const obscount = obsIdx >= 0 ? parseInt(tokens[obsIdx] ?? "0") || 0 : 0;
+      const portStr = portIdx >= 0 ? tokens[portIdx] ?? "" : "";
+      const port = parseInt(portStr) || null;
+      result.push({ callsign, quality, obscount, port });
+    }
+    if (result.length > 0) return result;
+  }
+
+  // Fallback: try "KEY:VALUE KEY:VALUE" style lines
+  const result: RouteEntry[] = [];
+  for (const line of lines) {
+    const callMatch = line.match(/(?:callsign|call)[:\s]+([A-Z0-9-]+)/i);
+    const qualMatch = line.match(/qual(?:ity)?[:\s]+(\d+)/i);
+    const obsMatch = line.match(/obs(?:count)?[:\s]+(\d+)/i);
+    const portMatch = line.match(/port[:\s]+(\d+)/i);
+    if (callMatch) {
+      result.push({
+        callsign: callMatch[1]!.toUpperCase(),
+        quality: qualMatch ? parseInt(qualMatch[1]!) || 0 : 0,
+        obscount: obsMatch ? parseInt(obsMatch[1]!) || 0 : 0,
+        port: portMatch ? parseInt(portMatch[1]!) || null : null,
+      });
+    }
+  }
+  return result;
 }
 
 function parseXRouterMheard(text: string): NormalizedHeard[] {
@@ -218,7 +274,6 @@ function runForceLayout(
     vy: 0,
   }));
 
-  // Pin our node at centre
   const ourIdx = nodes.findIndex((n) => n.isOurs);
   if (ourIdx >= 0) { pos[ourIdx]!.x = w / 2; pos[ourIdx]!.y = h / 2; }
 
@@ -277,7 +332,7 @@ function qualColor(q: number): string {
 // Main component
 // ---------------------------------------------------------------------------
 
-type Tab = "nodes" | "heard" | "map" | "stats";
+type Tab = "nodes" | "heard" | "map" | "stats" | "xrinfo";
 
 type FetchResult<T> =
   | { state: "idle" }
@@ -312,17 +367,21 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
   const [statsLoading, setStatsLoading] = useState(false);
   const [nodes, setNodes] = useState<FetchResult<NormalizedNode[]>>({ state: "idle" });
   const [heard, setHeard] = useState<FetchResult<NormalizedHeard[]>>({ state: "idle" });
-  const [nodeSort, setNodeSort] = useState<{ col: keyof NormalizedNode; dir: 1 | -1 }>({
-    col: "quality",
-    dir: -1,
+  const [routes, setRoutes] = useState<RouteEntry[]>([]);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [nodeDetail, setNodeDetail] = useState<{ text: string } | null>(null);
+  const [nodeDetailLoading, setNodeDetailLoading] = useState(false);
+  const [xrInfo, setXrInfo] = useState<{ version: string; ports: string; xrstats: string } | null>(null);
+  const [xrInfoLoading, setXrInfoLoading] = useState(false);
+  const [nodeSort, setNodeSort] = useState<{ col: "callsign" | "alias"; dir: 1 | -1 }>({
+    col: "callsign",
+    dir: 1,
   });
 
   const fetchNodes = async () => {
     if (!profile?.adminPort) return;
     setNodes({ state: "loading" });
 
-    // Try XRouter exec commands first (works for XRouter without JSON API).
-    // Keep the last non-empty response as a fallback to show as raw if nothing parses.
     let lastRawText: string | undefined;
     let lastRawCmd: string | undefined;
     for (const cmd of ["N", "NODES"]) {
@@ -340,7 +399,6 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // Fall back to JSON paths (BPQ32 / other nodes)
     const res = await tryJsonPaths(["/api/nodes", "/nodes", "/NetRom/Nodes", "/netrom/nodes"]);
     if (res) {
       const parsed = normalizeNodes(res.data);
@@ -348,6 +406,18 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
     }
 
     setNodes({ state: "error", message: "No response from exec commands or JSON API. Check that the Admin/Terminal port is correct and the node is reachable." });
+  };
+
+  const fetchRoutes = async () => {
+    if (!profile?.adminPort) return;
+    try {
+      for (const cmd of ["R", "ROUTES"]) {
+        const { text } = await fetchNodeCmd(cmd);
+        if (!text.trim()) continue;
+        const parsed = parseXRouterRoutes(text);
+        if (parsed.length > 0) { setRoutes(parsed); return; }
+      }
+    } catch { /* best effort */ }
   };
 
   const fetchHeard = async () => {
@@ -374,13 +444,48 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
     setHeard({ state: "error", message: "No response from exec commands or JSON API." });
   };
 
+  const fetchXrInfo = useCallback(async () => {
+    if (!profile?.adminPort) return;
+    setXrInfoLoading(true);
+    const [vRes, pRes, sRes] = await Promise.allSettled([
+      fetchNodeCmd("V"),
+      fetchNodeCmd("P"),
+      fetchNodeCmd("S"),
+    ]);
+    setXrInfo({
+      version: vRes.status === "fulfilled" ? vRes.value.text : "Could not retrieve.",
+      ports: pRes.status === "fulfilled" ? pRes.value.text : "Could not retrieve.",
+      xrstats: sRes.status === "fulfilled" ? sRes.value.text : "Could not retrieve.",
+    });
+    setXrInfoLoading(false);
+  }, [profile?.adminPort]);
+
+  const handleSelectNode = useCallback(async (callsign: string) => {
+    if (selectedNode === callsign) {
+      setSelectedNode(null);
+      setNodeDetail(null);
+      return;
+    }
+    setSelectedNode(callsign);
+    setNodeDetail(null);
+    setNodeDetailLoading(true);
+    try {
+      const { text } = await fetchNodeCmd(`N ${callsign}`);
+      setNodeDetail({ text });
+    } catch {
+      setNodeDetail({ text: "Failed to fetch node detail." });
+    } finally {
+      setNodeDetailLoading(false);
+    }
+  }, [selectedNode]);
+
   useEffect(() => {
     fetchNodes();
     fetchHeard();
+    fetchRoutes();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
-  // Auto-fetch WPS stats on open when landing on the stats tab (no admin port → default tab).
   useEffect(() => {
     if (tab !== "stats") return;
     setStatsLoading(true);
@@ -390,23 +495,23 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (tab === "xrinfo" && !xrInfo && !xrInfoLoading) fetchXrInfo();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const sortedNodes = useMemo(() => {
     if (nodes.state !== "ok") return [];
     return [...nodes.data].sort((a, b) => {
-      const av = a[nodeSort.col] ?? -1;
-      const bv = b[nodeSort.col] ?? -1;
-      if (av === null && bv === null) return 0;
-      if (av === null) return 1;
-      if (bv === null) return -1;
-      return typeof av === "string"
-        ? nodeSort.dir * av.localeCompare(String(bv))
-        : nodeSort.dir * (Number(av) - Number(bv));
+      const av = a[nodeSort.col] ?? "";
+      const bv = b[nodeSort.col] ?? "";
+      return nodeSort.dir * String(av).localeCompare(String(bv));
     });
   }, [nodes, nodeSort]);
 
-  function toggleSort(col: keyof NormalizedNode) {
+  function toggleSort(col: "callsign" | "alias") {
     setNodeSort((prev) =>
-      prev.col === col ? { col, dir: (prev.dir * -1) as 1 | -1 } : { col, dir: -1 }
+      prev.col === col ? { col, dir: (prev.dir * -1) as 1 | -1 } : { col, dir: 1 }
     );
   }
 
@@ -440,6 +545,14 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
     return { graphNodes, edges, positions };
   }, [nodes, myCall]);
 
+  const TAB_LABELS: Record<Tab, string> = {
+    nodes: "Nodes",
+    heard: "Heard log",
+    map: "Network map",
+    stats: "WPS Stats",
+    xrinfo: "XR Info",
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal node-info-modal" onClick={(e) => e.stopPropagation()}>
@@ -457,7 +570,14 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
               <>
                 <button
                   className="btn small"
-                  onClick={() => { fetchNodes(); fetchHeard(); }}
+                  onClick={() => {
+                    fetchNodes();
+                    fetchHeard();
+                    fetchRoutes();
+                    if (tab === "xrinfo") fetchXrInfo();
+                    setSelectedNode(null);
+                    setNodeDetail(null);
+                  }}
                   title="Re-run node commands"
                 >
                   Refresh
@@ -477,7 +597,7 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="node-info-tabs">
-          {(["nodes", "heard", "map", "stats"] as Tab[]).map((t) => (
+          {(["nodes", "heard", "map", "xrinfo", "stats"] as Tab[]).map((t) => (
             <button
               key={t}
               className={`node-info-tab${tab === t ? " active" : ""}`}
@@ -490,14 +610,24 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
                 }
               }}
             >
-              {t === "nodes" ? "Nodes" : t === "heard" ? "Heard log" : t === "map" ? "Network map" : "WPS Stats"}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </div>
 
         <div className="node-info-body">
           {tab === "nodes" && (profile?.adminPort
-            ? <NodeTable result={nodes} sorted={sortedNodes} sort={nodeSort} onToggleSort={toggleSort} />
+            ? <NodeTab
+                result={nodes}
+                sorted={sortedNodes}
+                sort={nodeSort}
+                onToggleSort={toggleSort}
+                routes={routes}
+                selectedNode={selectedNode}
+                nodeDetail={nodeDetail}
+                nodeDetailLoading={nodeDetailLoading}
+                onSelectNode={handleSelectNode}
+              />
             : <NoAdminPort />
           )}
           {tab === "heard" && (profile?.adminPort
@@ -506,6 +636,10 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
           )}
           {tab === "map" && (profile?.adminPort
             ? <MapTab layout={mapLayout} svgRef={mapSvgRef} w={MAP_W} h={MAP_H} />
+            : <NoAdminPort />
+          )}
+          {tab === "xrinfo" && (profile?.adminPort
+            ? <XrInfoTab info={xrInfo} loading={xrInfoLoading} onRefresh={fetchXrInfo} />
             : <NoAdminPort />
           )}
           {tab === "stats" && <WpsStatsTab stats={wpsStats} loading={statsLoading && !wpsStats} />}
@@ -558,65 +692,105 @@ function NoAdminPort() {
   );
 }
 
-function NodeTable({
+function RoutesBar({ routes }: { routes: RouteEntry[] }) {
+  if (routes.length === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+      {routes.map((r) => (
+        <div
+          key={r.callsign}
+          title={`Quality: ${r.quality} · Obs: ${r.obscount}${r.port != null ? ` · Port ${r.port}` : ""}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 10px",
+            borderRadius: 6,
+            background: "var(--surface)",
+            border: `1px solid ${qualColor(r.quality)}55`,
+            fontSize: 12,
+          }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: qualColor(r.quality), flexShrink: 0 }} />
+          <span style={{ fontWeight: 600 }}>{r.callsign}</span>
+          <span style={{ color: "var(--text-muted)" }}>Q{r.quality}</span>
+          {r.obscount > 0 && <span style={{ color: r.obscount >= 4 ? "var(--danger)" : "var(--text-muted)" }}>obs:{r.obscount}</span>}
+          {r.port != null && <span style={{ color: "var(--text-muted)" }}>p{r.port}</span>}
+        </div>
+      ))}
+      <span style={{ fontSize: 11, color: "var(--text-muted)", alignSelf: "center" }}>direct route{routes.length !== 1 ? "s" : ""}</span>
+    </div>
+  );
+}
+
+function NodeTab({
   result,
   sorted,
   sort,
   onToggleSort,
+  routes,
+  selectedNode,
+  nodeDetail,
+  nodeDetailLoading,
+  onSelectNode,
 }: {
   result: FetchResult<NormalizedNode[]>;
   sorted: NormalizedNode[];
-  sort: { col: keyof NormalizedNode; dir: 1 | -1 };
-  onToggleSort: (col: keyof NormalizedNode) => void;
+  sort: { col: string; dir: 1 | -1 };
+  onToggleSort: (col: "callsign" | "alias") => void;
+  routes: RouteEntry[];
+  selectedNode: string | null;
+  nodeDetail: { text: string } | null;
+  nodeDetailLoading: boolean;
+  onSelectNode: (callsign: string) => void;
 }) {
   if (result.state !== "ok") return <LoadState result={result} />;
   if (sorted.length === 0) return <p className="node-info-placeholder">No nodes in routing table.</p>;
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table className="node-table">
-        <thead>
-          <tr>
-            <th onClick={() => onToggleSort("callsign")}>Callsign<SortArrow col="callsign" sort={sort} /></th>
-            <th onClick={() => onToggleSort("alias")}>Alias<SortArrow col="alias" sort={sort} /></th>
-            <th onClick={() => onToggleSort("quality")} title="0–255; higher is better">Quality<SortArrow col="quality" sort={sort} /></th>
-            <th onClick={() => onToggleSort("obscount")} title="Obsolescence count 0–6; lower is fresher">Obs<SortArrow col="obscount" sort={sort} /></th>
-            <th onClick={() => onToggleSort("rtt")} title="Round-trip time in ms">RTT<SortArrow col="rtt" sort={sort} /></th>
-            <th onClick={() => onToggleSort("via")}>Via<SortArrow col="via" sort={sort} /></th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((n) => (
-            <tr key={n.callsign}>
-              <td style={{ fontWeight: 600 }}>{n.callsign}</td>
-              <td style={{ color: "var(--text-muted)" }}>{n.alias || "—"}</td>
-              <td>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div className="quality-bar">
-                    <div
-                      className="quality-fill"
-                      style={{
-                        width: `${(n.quality / 255) * 100}%`,
-                        background: qualColor(n.quality),
-                      }}
-                    />
-                  </div>
-                  <span style={{ fontSize: 12, color: "var(--text-muted)", minWidth: 24 }}>{n.quality}</span>
-                </div>
-              </td>
-              <td style={{ color: n.obscount >= 4 ? "var(--danger)" : "var(--text-muted)", textAlign: "center" }}>
-                {n.obscount}
-              </td>
-              <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                {n.rtt !== null ? `${n.rtt} ms` : "—"}
-              </td>
-              <td style={{ color: "var(--text-muted)" }}>{n.via || "direct"}</td>
+    <div>
+      <RoutesBar routes={routes} />
+      <div style={{ overflowX: "auto" }}>
+        <table className="node-table">
+          <thead>
+            <tr>
+              <th onClick={() => onToggleSort("callsign")}>Callsign<SortArrow col="callsign" sort={sort} /></th>
+              <th onClick={() => onToggleSort("alias")}>Alias<SortArrow col="alias" sort={sort} /></th>
+              <th style={{ width: 24, opacity: 0.5, fontSize: 11 }} title="Click any row to fetch node detail">▶</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, textAlign: "right" }}>
-        {sorted.length} node{sorted.length === 1 ? "" : "s"}
+          </thead>
+          <tbody>
+            {sorted.map((n) => (
+              <>
+                <tr
+                  key={n.callsign}
+                  style={{ cursor: "pointer", background: selectedNode === n.callsign ? "var(--surface)" : undefined }}
+                  onClick={() => onSelectNode(n.callsign)}
+                  title="Click to fetch node detail"
+                >
+                  <td style={{ fontWeight: 600 }}>{n.callsign}</td>
+                  <td style={{ color: "var(--text-muted)" }}>{n.alias || "—"}</td>
+                  <td style={{ color: "var(--text-muted)", fontSize: 11 }}>{selectedNode === n.callsign ? "▼" : "▶"}</td>
+                </tr>
+                {selectedNode === n.callsign && (
+                  <tr key={`${n.callsign}-detail`}>
+                    <td colSpan={3} style={{ padding: "8px 12px", background: "var(--bg-primary)" }}>
+                      {nodeDetailLoading
+                        ? <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Fetching…</span>
+                        : nodeDetail
+                          ? <pre style={{ margin: 0, fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{nodeDetail.text}</pre>
+                          : null
+                      }
+                    </td>
+                  </tr>
+                )}
+              </>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, textAlign: "right" }}>
+          {sorted.length} node{sorted.length === 1 ? "" : "s"}
+        </div>
       </div>
     </div>
   );
@@ -670,6 +844,45 @@ function formatLastHeard(raw: string): string {
   }
 }
 
+function XrInfoTab({
+  info,
+  loading,
+  onRefresh,
+}: {
+  info: { version: string; ports: string; xrstats: string } | null;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  if (loading) return <p className="node-info-placeholder">Loading XR Info…</p>;
+  if (!info) return (
+    <div className="node-info-placeholder">
+      <p>XR Info not loaded.</p>
+      <button className="btn small" onClick={onRefresh}>Load</button>
+    </div>
+  );
+
+  const sections = [
+    { title: "Version", text: info.version },
+    { title: "Ports", text: info.ports },
+    { title: "Stats", text: info.xrstats },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {sections.map(({ title, text }) => (
+        <div key={title}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
+            {title}
+          </div>
+          <pre style={{ margin: 0, fontSize: 11, background: "var(--bg-primary)", padding: "8px 10px", borderRadius: 4, whiteSpace: "pre-wrap", wordBreak: "break-word", border: "1px solid var(--border)" }}>
+            {text || "No data"}
+          </pre>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MapTab({
   layout,
   svgRef,
@@ -705,7 +918,6 @@ function MapTab({
           </marker>
         </defs>
 
-        {/* Edges */}
         {edges.map((e, i) => {
           const s = positions[e.source]!;
           const t = positions[e.target]!;
@@ -736,7 +948,6 @@ function MapTab({
           );
         })}
 
-        {/* Nodes */}
         {graphNodes.map((node, i) => {
           const p = positions[i]!;
           const r = node.isOurs ? 28 : 22;
