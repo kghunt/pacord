@@ -209,7 +209,7 @@ export function ChatPane({ onToggleOnline }: { onToggleOnline?: () => void }) {
     <div className="chat-pane">
       <div className="chat-header">
         <button className="mobile-back-btn icon-button" onClick={() => setActiveTarget(null)} title="Back">
-          ‹
+          <span className="mobile-back-arrow">‹</span>
           {otherUnread > 0 && <span className="mobile-back-badge">{otherUnread > 99 ? "99+" : otherUnread}</span>}
         </button>
         <span>{title}</span>

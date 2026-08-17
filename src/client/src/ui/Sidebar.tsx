@@ -18,7 +18,7 @@ export function Sidebar({
   onOpenNodeInfo: () => void;
   onOpenSearch: () => void;
 }) {
-  const { connectionState, profiles } = useConnectionStore();
+  const { connectionState, profiles, connect, disconnect } = useConnectionStore();
   const { channels, peers, activeTarget, setActiveTarget, loadMessages, loadPosts, unreadCounts } = useChatStore();
 
   const activeProfile = profiles.find((p) => p.id === connectionState.activeProfileId);
@@ -38,11 +38,23 @@ export function Sidebar({
     setNotifPerm(result);
   }
 
-  // Viewing a channel only loads whatever local history is already cached —
-  // it does NOT subscribe. Subscribing (which triggers a live feed + a
-  // history backfill over the radio link) is an explicit opt-in from the
-  // chat header, so browsing channels never silently starts pulling data
-  // over a bandwidth-constrained RF link.
+  async function handleStatusClick() {
+    const status = connectionState.status;
+    if (status === "connecting") return;
+    if (status === "connected") {
+      if (confirm("Disconnect from the radio network?")) {
+        try { await disconnect(); } catch { /* ignore */ }
+      }
+    } else {
+      const target = activeProfile ?? profiles[0];
+      if (!target) { onOpenSettings(); return; }
+      const name = target.name || target.myCall;
+      if (confirm(`Connect using profile "${name}"?`)) {
+        try { await connect(target.id); } catch { /* ignore */ }
+      }
+    }
+  }
+
   function openChannel(cid: number) {
     setActiveTarget({ type: "channel", cid });
     loadPosts(cid);
@@ -63,7 +75,16 @@ export function Sidebar({
         >
           {activeProfile ? activeProfile.name : "Pacord"}
         </h1>
-        <span className="status-pill">
+        <span
+          className="status-pill"
+          style={{ cursor: connectionState.status !== "connecting" ? "pointer" : "default" }}
+          title={
+            connectionState.status === "connected" ? "Click to disconnect" :
+            connectionState.status === "connecting" ? "Connecting…" :
+            "Click to connect"
+          }
+          onClick={handleStatusClick}
+        >
           <span className={`status-dot ${connectionState.status}`} />
           {connectionState.status}
         </span>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { debugFrameBuffer, onDebugBufferChange, type DebugFrame } from "../api/useBackendSocket";
+import { debugFrameBuffer, onDebugBufferChange, seedDebugFrames, type DebugFrame } from "../api/useBackendSocket";
+import { fetchDebugFrames } from "../api/rest";
 
 export function DebugTerminal({ onClose }: { onClose: () => void }) {
   const [frames, setFrames] = useState<DebugFrame[]>(() => [...debugFrameBuffer]);
@@ -16,6 +17,16 @@ export function DebugTerminal({ onClose }: { onClose: () => void }) {
       setFrames([...debugFrameBuffer]);
     });
     return unsub;
+  }, []);
+
+  // Fetch server-side history so the log shows frames from before this
+  // session opened or before the debug terminal was first opened.
+  useEffect(() => {
+    fetchDebugFrames()
+      .then((history) => {
+        if (history.length > 0) seedDebugFrames(history);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

@@ -1338,18 +1338,19 @@ select {
 
 .mobile-back-btn {
   display: none;
-  font-size: 22px;
-  line-height: 1;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
   padding: 4px 8px;
   color: var(--text-muted);
-  flex-shrink: 0;
-  position: relative;
+}
+
+.mobile-back-arrow {
+  font-size: 22px;
+  line-height: 1;
 }
 
 .mobile-back-badge {
-  position: absolute;
-  top: 0;
-  right: 0;
   background: var(--danger);
   color: #fff;
   font-size: 9px;
@@ -1357,7 +1358,6 @@ select {
   border-radius: 999px;
   padding: 1px 4px;
   line-height: 1.4;
-  pointer-events: none;
 }
 
 .mobile-online-btn {

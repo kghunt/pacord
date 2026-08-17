@@ -12,7 +12,20 @@ import { getActiveClient, getConnectionState, disconnect } from "./connectionMan
 const sockets = new Set<WebSocket>();
 const debugSockets = new Set<WebSocket>();
 
+// Server-side rolling buffer so the frame log shows history from before the
+// debug terminal was opened (or before the client connected).
+const FRAME_HISTORY_SIZE = 100;
+const frameHistory: Array<{ direction: "in" | "out"; frame: string; tsMs: number }> = [];
+
+export function getFrameHistory() {
+  return [...frameHistory];
+}
+
 export function broadcastDebug(ev: ServerEvent): void {
+  if (ev.type === "debug_frame") {
+    frameHistory.push({ direction: ev.direction, frame: ev.frame, tsMs: ev.tsMs });
+    if (frameHistory.length > FRAME_HISTORY_SIZE) frameHistory.shift();
+  }
   const text = JSON.stringify(ev);
   for (const ws of debugSockets) {
     if (ws.readyState === ws.OPEN) ws.send(text);

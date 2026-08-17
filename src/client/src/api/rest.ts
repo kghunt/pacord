@@ -107,6 +107,11 @@ export const fetchNodeProxy = (path: string) =>
 export const fetchNodeCmd = (cmd: string) =>
   fetch(`/api/node-cmd?cmd=${encodeURIComponent(cmd)}`).then((r) => json<{ text: string; cmd: string }>(r));
 
+export const fetchDebugFrames = () =>
+  fetch("/api/debug-frames").then((r) =>
+    json<Array<{ direction: "in" | "out"; frame: string; tsMs: number }>>(r)
+  );
+
 export const searchHistory = (q: string) =>
   fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => json<SearchResult[]>(r));
 

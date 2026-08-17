@@ -85,6 +85,9 @@ export function Composer({
     onSubmit(trimmed);
     setText("");
     setMentionQuery(null);
+    requestAnimationFrame(() => {
+      if (ref.current) ref.current.style.height = "auto";
+    });
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

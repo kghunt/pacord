@@ -15,6 +15,7 @@ import { registerVersionRoute } from "./routes/version.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerNodeProxyRoutes } from "./routes/nodeProxy.js";
 import { registerSearchRoute } from "./routes/search.js";
+import { registerDebugFramesRoute } from "./routes/debugFrames.js";
 import { attachClient } from "./wsHub.js";
 import { autoConnectOnStartup } from "./connectionManager.js";
 
@@ -43,6 +44,7 @@ await registerVersionRoute(app);
 await registerSettingsRoutes(app);
 await registerNodeProxyRoutes(app);
 await registerSearchRoute(app);
+await registerDebugFramesRoute(app);
 
 app.register(async (instance) => {
   instance.get("/ws", { websocket: true }, (socket) => {

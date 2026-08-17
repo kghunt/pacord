@@ -30,6 +30,24 @@ function pushDebugFrame(f: Omit<DebugFrame, "id">): void {
   _debugListeners.forEach((fn) => fn());
 }
 
+// Seed the buffer with server-side history, prepending frames that predate
+// whatever the client already received. Frames that overlap (same tsMs AND
+// frame content) are deduplicated.
+export function seedDebugFrames(
+  serverFrames: Array<{ direction: "in" | "out"; frame: string; tsMs: number }>
+): void {
+  const existingKeys = new Set(debugFrameBuffer.map((f) => `${f.tsMs}:${f.frame}`));
+  const toAdd = serverFrames.filter((f) => !existingKeys.has(`${f.tsMs}:${f.frame}`));
+  if (toAdd.length === 0) return;
+  const merged = [
+    ...toAdd.map((f) => ({ ...f, id: _debugSeq++ })),
+    ...debugFrameBuffer,
+  ].slice(-DEBUG_BUFFER_SIZE);
+  debugFrameBuffer.length = 0;
+  debugFrameBuffer.push(...merged);
+  _debugListeners.forEach((fn) => fn());
+}
+
 let audioCtx: AudioContext | null = null;
 
 // ---------------------------------------------------------------------------
