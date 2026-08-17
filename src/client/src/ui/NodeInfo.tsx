@@ -68,7 +68,8 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
 
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]!;
-    if (/(alias|callsign)/i.test(l) && /qual/i.test(l)) {
+    // Match "qual", "quality", "qua", or "qlty" as column header variants.
+    if (/(alias|callsign)/i.test(l) && /\b(qual|qlty|qua)\b/i.test(l)) {
       headerIdx = i;
       colMap = colMapFromHeader(l);
       break;
@@ -78,17 +79,38 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
   if (headerIdx >= 0) {
     const aliasIdx = colMap["alias"] ?? -1;
     const callIdx = colMap["callsign"] ?? -1;
-    const qualIdx = colMap["quality"] ?? colMap["qual"] ?? -1;
+    const qualIdx = colMap["quality"] ?? colMap["qual"] ?? colMap["qua"] ?? colMap["qlty"] ?? -1;
     const obsIdx = colMap["obsco"] ?? colMap["obs"] ?? colMap["obscount"] ?? -1;
     const rttIdx = colMap["rtt(ms)"] ?? colMap["rtt"] ?? colMap["roundtrip"] ?? -1;
+
+    // Some XRouter versions emit "alias:callsign" as a single combined header
+    // token — find it so we can split data rows at the colon.
+    let combinedColIdx = -1;
+    if (aliasIdx < 0 && callIdx < 0) {
+      for (const [k, v] of Object.entries(colMap)) {
+        if (/alias.{0,3}callsign|callsign.{0,3}alias/i.test(k)) { combinedColIdx = v; break; }
+      }
+    }
 
     const result: NormalizedNode[] = [];
     for (let i = headerIdx + 1; i < lines.length; i++) {
       const l = lines[i]!.trim();
-      if (!l || /^[}\]>$#:;]/.test(l)) continue;
+      if (!l || /^[-=]{3,}/.test(l) || /^[}\]>$#:;]/.test(l)) continue;
       const tokens = l.split(/\s+/);
-      const alias = aliasIdx >= 0 ? (tokens[aliasIdx] ?? "") : "";
-      const callsign = callIdx >= 0 ? (tokens[callIdx] ?? "") : "";
+
+      let alias = "";
+      let callsign = "";
+      if (combinedColIdx >= 0) {
+        const combined = tokens[combinedColIdx] ?? "";
+        const ci = combined.indexOf(":");
+        if (ci <= 0) continue;
+        alias = combined.slice(0, ci);
+        callsign = combined.slice(ci + 1);
+      } else {
+        alias = aliasIdx >= 0 ? (tokens[aliasIdx] ?? "") : "";
+        callsign = callIdx >= 0 ? (tokens[callIdx] ?? "") : "";
+      }
+
       const cs = (callsign || alias).toUpperCase();
       if (!cs || cs === "?" || cs === "--") continue;
       const qualStr = qualIdx >= 0 ? (tokens[qualIdx] ?? "0") : "0";
@@ -97,14 +119,15 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
       const rttMatch = rttStr.replace("--", "").match(/\d+/);
       result.push({
         callsign: cs,
-        alias: alias && alias !== callsign ? alias.toUpperCase() : "",
+        alias: alias && alias.toUpperCase() !== cs ? alias.toUpperCase() : "",
         quality: parseInt(qualStr) || 0,
         obscount: parseInt(obsStr) || 0,
         rtt: rttMatch ? parseInt(rttMatch[0]!) : null,
         via: null,
       });
     }
-    return result;
+    // Only return if we got results — otherwise fall through to compact parser.
+    if (result.length > 0) return result;
   }
 
   // Fallback: XRouter compact format — "ALIAS:CALLSIGN" pairs, multiple per
@@ -117,6 +140,7 @@ function parseXRouterNodes(text: string): NormalizedNode[] {
   for (const line of lines) {
     const stripped = line.trim();
     if (!stripped || /}\s*Nodes:/i.test(stripped) || /\d+\s+nodes?\s+found/i.test(stripped)) continue;
+    if (/(alias|callsign)/i.test(stripped)) continue; // skip header lines
     for (const tok of stripped.split(/\s+/)) {
       const m = tok.match(TOKEN_RE);
       if (!m) continue;
@@ -297,17 +321,23 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
     if (!profile?.adminPort) return;
     setNodes({ state: "loading" });
 
-    // Try XRouter exec commands first (works for XRouter without JSON API)
+    // Try XRouter exec commands first (works for XRouter without JSON API).
+    // Keep the last non-empty response as a fallback to show as raw if nothing parses.
+    let lastRawText: string | undefined;
+    let lastRawCmd: string | undefined;
     for (const cmd of ["N", "NODES"]) {
       try {
         const { text } = await fetchNodeCmd(cmd);
         if (!text.trim()) continue;
         const parsed = parseXRouterNodes(text);
         if (parsed.length > 0) { setNodes({ state: "ok", data: parsed }); return; }
-        // Got output but couldn't parse — show raw so we can debug
-        setNodes({ state: "raw", text, cmd });
-        return;
+        lastRawText = text;
+        lastRawCmd = cmd;
       } catch { /* try next */ }
+    }
+    if (lastRawText !== undefined) {
+      setNodes({ state: "raw", text: lastRawText, cmd: lastRawCmd! });
+      return;
     }
 
     // Fall back to JSON paths (BPQ32 / other nodes)
