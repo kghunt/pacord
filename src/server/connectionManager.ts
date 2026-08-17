@@ -9,7 +9,7 @@ import type { ConnectionState, ServerEvent } from "../shared/types.js";
 import * as profilesDb from "./db/profiles.js";
 import * as metaDb from "./db/meta.js";
 import { WpsClient } from "./protocol/wpsClient.js";
-import { broadcast, broadcastDebug } from "./wsHub.js";
+import { broadcast, broadcastDebug, incrementUnread } from "./wsHub.js";
 
 const ACTIVE_PROFILE_META_KEY = "active_profile_id";
 const RETRY_INITIAL_MS = 2000;
@@ -50,11 +50,23 @@ export function connectProfile(id: number): void {
   lastError = null;
   metaDb.setMeta(ACTIVE_PROFILE_META_KEY, String(id));
 
+  const myCall = profile.myCall.toUpperCase().split("-", 1)[0]!;
   const token = ++connectToken;
   const client = new WpsClient(profile);
   client.on("event", (ev: ServerEvent) => {
-    if (ev.type === "debug_frame") broadcastDebug(ev);
-    else broadcast(ev);
+    if (ev.type === "debug_frame") {
+      broadcastDebug(ev);
+      return;
+    }
+    // Increment the server-side unread count for incoming messages so that
+    // all sessions — including ones that connected after this event — can see
+    // the badge without having received the original WebSocket push.
+    if (ev.type === "post" && ev.row.fromCall !== myCall) {
+      incrementUnread(`channel:${ev.row.cid}`);
+    } else if (ev.type === "message" && ev.row.fromCall !== myCall) {
+      incrementUnread(ev.row.fromCall);
+    }
+    broadcast(ev);
   });
   activeClient = client;
   attemptConnect(client, token, RETRY_INITIAL_MS);

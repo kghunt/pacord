@@ -38,7 +38,8 @@ interface ChatStore {
   upsertMessageBatch: (rows: MessageRow[]) => void;
   upsertPost: (row: PostRow) => void;
   upsertPostBatch: (cid: number, rows: PostRow[]) => void;
-  incrementUnread: (key: string) => void;
+  setServerUnreadCounts: (counts: Record<string, number>) => void;
+  recordFirstUnread: (key: string, tsMs: number) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -116,9 +117,29 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       postsByChannel: { ...s.postsByChannel, [cid]: mergePosts(s.postsByChannel[cid] ?? [], rows) },
     })),
 
-  incrementUnread: (key) =>
-    set((s) => ({
-      unreadCounts: { ...s.unreadCounts, [key]: (s.unreadCounts[key] ?? 0) + 1 },
-      firstUnreadMs: s.firstUnreadMs[key] ? s.firstUnreadMs : { ...s.firstUnreadMs, [key]: Date.now() },
-    })),
+  // Apply the server's authoritative counts. Locally-cleared keys (value 0)
+  // are preserved so a briefly-stale broadcast doesn't re-add a badge the
+  // user just dismissed. The server's own mark_read broadcast quickly follows
+  // and converges everyone to the same value.
+  setServerUnreadCounts: (counts) =>
+    set((s) => {
+      const localZeros = Object.fromEntries(
+        Object.entries(s.unreadCounts).filter(([, v]) => v === 0).map(([k]) => [k, 0])
+      );
+      const merged = { ...counts, ...localZeros };
+      // Seed firstUnreadMs for newly-discovered unread keys.
+      const firstUnreadMs = { ...s.firstUnreadMs };
+      for (const [key, count] of Object.entries(merged)) {
+        if (count > 0 && !firstUnreadMs[key]) firstUnreadMs[key] = Date.now();
+        else if (count === 0) firstUnreadMs[key] = 0;
+      }
+      return { unreadCounts: merged, firstUnreadMs };
+    }),
+
+  recordFirstUnread: (key, tsMs) =>
+    set((s) =>
+      s.firstUnreadMs[key]
+        ? s
+        : { firstUnreadMs: { ...s.firstUnreadMs, [key]: tsMs } }
+    ),
 }));

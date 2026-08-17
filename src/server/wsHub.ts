@@ -12,6 +12,25 @@ import { getActiveClient, getConnectionState, disconnect } from "./connectionMan
 const sockets = new Set<WebSocket>();
 const debugSockets = new Set<WebSocket>();
 
+// ---------------------------------------------------------------------------
+// Server-side unread counts — single source of truth across all sessions.
+// Keys follow the same convention as the client store:
+//   channel post  → "channel:<cid>"
+//   direct message → "<callsign>"
+// ---------------------------------------------------------------------------
+const serverUnread: Record<string, number> = {};
+
+export function incrementUnread(key: string): void {
+  serverUnread[key] = (serverUnread[key] ?? 0) + 1;
+  broadcast({ type: "unread_counts", counts: { ...serverUnread } });
+}
+
+function clearUnread(key: string): void {
+  if (!serverUnread[key]) return;
+  serverUnread[key] = 0;
+  broadcast({ type: "unread_counts", counts: { ...serverUnread } });
+}
+
 // Server-side rolling buffer so the frame log shows history from before the
 // debug terminal was opened (or before the client connected).
 const FRAME_HISTORY_SIZE = 100;
@@ -68,6 +87,7 @@ export function attachClient(ws: WebSocket): void {
   cancelIdleTimer();
   sockets.add(ws);
   ws.send(JSON.stringify({ type: "connection_state", state: getConnectionState() } satisfies ServerEvent));
+  ws.send(JSON.stringify({ type: "unread_counts", counts: { ...serverUnread } } satisfies ServerEvent));
 
   ws.on("message", (raw) => {
     let action: ClientAction;
@@ -143,6 +163,9 @@ async function handleAction(ws: WebSocket, action: ClientAction): Promise<void> 
     case "request_stats":
       if (!client) throw new Error("not connected");
       await client.requestStats();
+      break;
+    case "mark_read":
+      clearUnread(action.key);
       break;
     case "set_debug":
       if (action.enabled) {

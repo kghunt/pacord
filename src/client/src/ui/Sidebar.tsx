@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useConnectionStore, displayNameFor, fullDisplayFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
 import { fetchVersion } from "../api/rest";
+import { sendAction } from "../api/socket";
 
 export function Sidebar({
   onOpenSettings,
@@ -58,11 +59,13 @@ export function Sidebar({
   function openChannel(cid: number) {
     setActiveTarget({ type: "channel", cid });
     loadPosts(cid);
+    sendAction({ type: "mark_read", key: `channel:${cid}` });
   }
 
   function openDm(peer: string) {
     setActiveTarget({ type: "dm", peer });
     loadMessages(peer);
+    sendAction({ type: "mark_read", key: peer });
   }
 
   return (

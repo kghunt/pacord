@@ -133,7 +133,8 @@ export type ServerEvent =
   | { type: "avatar"; callsign: string }
   | { type: "wps_stats"; stats: WpsStats }
   | { type: "welcome" }
-  | { type: "debug_frame"; direction: "in" | "out"; frame: string; tsMs: number };
+  | { type: "debug_frame"; direction: "in" | "out"; frame: string; tsMs: number }
+  | { type: "unread_counts"; counts: Record<string, number> };
 
 // ---------------------------------------------------------------------------
 // Search
@@ -169,4 +170,5 @@ export type ClientAction =
   | { type: "request_post_batch"; cid: number; count: number }
   | { type: "request_avatars"; countOnly: boolean }
   | { type: "request_stats" }
-  | { type: "set_debug"; enabled: boolean };
+  | { type: "set_debug"; enabled: boolean }
+  | { type: "mark_read"; key: string };

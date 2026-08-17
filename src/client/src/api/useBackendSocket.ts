@@ -144,8 +144,11 @@ export function useBackendSocket(): void {
             if (ev.row.fromCall !== myCall) {
               const { activeTarget } = useChatStore.getState();
               const isActiveDm = activeTarget?.type === "dm" && activeTarget.peer === peer;
-              if (!isActiveDm || userIsAway()) {
-                useChatStore.getState().incrementUnread(peer);
+              if (isActiveDm && !userIsAway()) {
+                // Viewing this DM — tell the server so all sessions clear the badge.
+                sendAction({ type: "mark_read", key: peer });
+              } else {
+                useChatStore.getState().recordFirstUnread(peer, ev.row.ts * 1000);
                 ping();
                 notify(displayNameFor(peer), ev.row.body);
               }
@@ -167,14 +170,20 @@ export function useBackendSocket(): void {
               const isMention = myCall ? (ev.row.atCalls ?? []).includes(myCall) : false;
               const { activeTarget } = useChatStore.getState();
               const isActiveChannel = activeTarget?.type === "channel" && activeTarget.cid === ev.row.cid;
-              if (!isActiveChannel || isMention || userIsAway()) {
-                useChatStore.getState().incrementUnread(`channel:${ev.row.cid}`);
+              if (isActiveChannel && !isMention && !userIsAway()) {
+                // Viewing this channel — tell the server so all sessions clear the badge.
+                sendAction({ type: "mark_read", key: `channel:${ev.row.cid}` });
+              } else {
+                useChatStore.getState().recordFirstUnread(`channel:${ev.row.cid}`, ev.row.ts);
                 ping();
                 const ch = useChatStore.getState().channels.find((c) => c.cid === ev.row.cid);
                 notify(`#${ch?.name ?? ev.row.cid}`, `${displayNameFor(ev.row.fromCall)}: ${ev.row.body}`);
               }
             }
           }
+          break;
+        case "unread_counts":
+          useChatStore.getState().setServerUnreadCounts(ev.counts);
           break;
         case "post_batch":
           useChatStore.getState().upsertPostBatch(ev.cid, ev.rows);
