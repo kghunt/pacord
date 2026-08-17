@@ -19,6 +19,7 @@ function stripHtml(html: string): string {
     .replace(/&#039;/g, "'")
     .replace(/&nbsp;/g, " ")
     .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
     .trim();
 }
 
