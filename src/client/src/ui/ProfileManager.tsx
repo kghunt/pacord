@@ -1,21 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import type { AxLevel, ConnectProfile, Engine, HopStep, NewConnectProfile, NtfyLevel, Transport } from "@shared/types";
+import type { AxLevel, ConnectProfile, Engine, HopStep, NewConnectProfile, Transport } from "@shared/types";
 import { defaultPort, defaultRadioPort, defaultRemote } from "@shared/engineDefaults";
 import { useConnectionStore } from "../state/connectionStore";
-import { useChatStore } from "../state/chatStore";
-import { fetchSettings, saveSettings, setChannelNtfyLevel, testNtfy, type AppSettings } from "../api/rest";
+import { fetchSettings, saveSettings, type AppSettings } from "../api/rest";
 
 export function ProfileManager({ onClose }: { onClose: () => void }) {
   const { profiles, connectionState, createProfile, deleteProfile, connect, disconnect } = useConnectionStore();
-  const { channels, setChannels } = useChatStore();
   const [editing, setEditing] = useState<ConnectProfile | "new" | null>(null);
-  const [ntfyTesting, setNtfyTesting] = useState(false);
-  const [ntfyTestResult, setNtfyTestResult] = useState<"ok" | "error" | null>(null);
   const [idleMinutes, setIdleMinutes] = useState<number>(0);
   const [avatarCheckMinutes, setAvatarCheckMinutes] = useState<number>(0);
-  const [ntfyUrl, setNtfyUrl] = useState("");
-  const [ntfyToken, setNtfyToken] = useState("");
-  const [serverUrl, setServerUrl] = useState("");
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -23,9 +16,6 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
     fetchSettings().then((s: AppSettings) => {
       setIdleMinutes(s.idleDisconnectMinutes);
       setAvatarCheckMinutes(s.avatarCheckIntervalMinutes);
-      setNtfyUrl(s.ntfyUrl);
-      setNtfyToken(s.ntfyToken);
-      setServerUrl(s.serverUrl);
     }).catch(() => {});
   }, []);
 
@@ -33,37 +23,18 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
     setSettingsSaving(true);
     setSettingsSaved(false);
     try {
+      const current = await fetchSettings();
       await saveSettings({
         idleDisconnectMinutes: idleMinutes,
         avatarCheckIntervalMinutes: avatarCheckMinutes,
-        ntfyUrl,
-        ntfyToken,
-        serverUrl,
+        ntfyUrl: current.ntfyUrl,
+        ntfyToken: current.ntfyToken,
+        serverUrl: current.serverUrl,
       });
       setSettingsSaved(true);
     } finally {
       setSettingsSaving(false);
     }
-  }
-
-  async function handleTestNtfy() {
-    setNtfyTesting(true);
-    setNtfyTestResult(null);
-    try {
-      await testNtfy();
-      setNtfyTestResult("ok");
-    } catch {
-      setNtfyTestResult("error");
-    } finally {
-      setNtfyTesting(false);
-    }
-  }
-
-  async function handleChannelNtfyLevel(cid: number, level: NtfyLevel) {
-    try {
-      await setChannelNtfyLevel(cid, level);
-      setChannels(channels.map((c) => c.cid === cid ? { ...c, ntfyLevel: level } : c));
-    } catch { /* ignore */ }
   }
 
   if (editing) {
@@ -168,96 +139,6 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
             Periodically asks WPS how many new avatars are available. A banner appears in the app if any are
             waiting — click it to open the avatar download panel.
           </p>
-
-          <h4 style={{ margin: "16px 0 8px" }}>Push notifications via ntfy</h4>
-          <p className="form-hint" style={{ marginTop: 0 }}>
-            ntfy is a free, self-hostable service that delivers push notifications to your phone without needing
-            HTTPS or browser permissions. Install the ntfy app, subscribe to your topic, then paste the full topic
-            URL here. Leave blank to disable.
-          </p>
-          <div className="form-row" style={{ marginBottom: 6 }}>
-            <label>Pacord server URL</label>
-            <input
-              type="url"
-              placeholder="http://192.168.1.50:3000"
-              value={serverUrl}
-              onChange={(e) => { setServerUrl(e.target.value); setSettingsSaved(false); }}
-            />
-            <p className="form-hint" style={{ marginTop: 4 }}>
-              Used to add a deep link in notifications — tapping one opens Pacord at the right channel or DM.
-              Use the URL you'd type in a browser to reach this app from your phone.
-            </p>
-          </div>
-          <div className="form-row" style={{ marginBottom: 6 }}>
-            <label>ntfy topic URL</label>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="url"
-                placeholder="https://ntfy.sh/my-pacord-abc123"
-                value={ntfyUrl}
-                style={{ flex: 1 }}
-                onChange={(e) => { setNtfyUrl(e.target.value); setSettingsSaved(false); setNtfyTestResult(null); }}
-              />
-              <button
-                className="btn small"
-                onClick={handleTestNtfy}
-                disabled={ntfyTesting || !ntfyUrl.trim()}
-                title="Send a test notification to verify your ntfy setup"
-              >
-                {ntfyTesting ? "Sending…" : "Test"}
-              </button>
-            </div>
-            {ntfyTestResult === "ok" && (
-              <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--online)" }}>
-                Test sent — check your ntfy app.
-              </p>
-            )}
-            {ntfyTestResult === "error" && (
-              <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--danger)" }}>
-                Failed to send — check the URL and that the server can reach ntfy.
-              </p>
-            )}
-          </div>
-          <div className="form-row" style={{ marginBottom: 6 }}>
-            <label>Access token (optional)</label>
-            <input
-              type="password"
-              placeholder="tk_xxxxxxxxxxxx"
-              value={ntfyToken}
-              onChange={(e) => { setNtfyToken(e.target.value); setSettingsSaved(false); }}
-            />
-            <p className="form-hint" style={{ marginTop: 4 }}>
-              Only needed if your topic is protected. For a private self-hosted ntfy server, generate one in
-              ntfy's web UI under Account &rarr; Access tokens.
-            </p>
-          </div>
-
-          {channels.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>Channel notifications</label>
-              <p className="form-hint" style={{ marginTop: 0 }}>
-                Direct messages always send a notification when ntfy is configured.
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "4px 12px", alignItems: "center" }}>
-                {channels.map((ch) => (
-                  <>
-                    <span key={`lbl-${ch.cid}`} style={{ fontSize: 13 }}>#{ch.name || `channel-${ch.cid}`}</span>
-                    <select
-                      key={`sel-${ch.cid}`}
-                      value={ch.ntfyLevel}
-                      style={{ fontSize: 13 }}
-                      onChange={(e) => handleChannelNtfyLevel(ch.cid, e.target.value as NtfyLevel)}
-                    >
-                      <option value="all">All messages</option>
-                      <option value="replies">Replies &amp; mentions</option>
-                      <option value="mentions">Mentions only</option>
-                      <option value="none">Off</option>
-                    </select>
-                  </>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
             <button className="btn small primary" onClick={saveAllSettings} disabled={settingsSaving}>

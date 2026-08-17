@@ -7,6 +7,7 @@ import { TerminalPanel } from "./TerminalPanel";
 import { AvatarManager } from "./AvatarManager";
 import { DebugTerminal } from "./DebugTerminal";
 import { NodeInfo } from "./NodeInfo";
+import { NotificationSettings } from "./NotificationSettings";
 import { SearchModal } from "./SearchModal";
 import { useConnectionStore } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
@@ -15,6 +16,7 @@ import { sendAction } from "../api/socket";
 
 export function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [avatarsOpen, setAvatarsOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
@@ -174,6 +176,7 @@ export function Shell() {
         onOpenDebug={() => setDebugOpen(true)}
         onOpenNodeInfo={() => setNodeInfoOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
+        onOpenNotifications={() => setNotificationsOpen(true)}
       />
       <ChatPane onToggleOnline={() => setMobileOnlineOpen((v) => !v)} />
       <OnlineUsersPane mobileOpen={mobileOnlineOpen} onMobileClose={() => setMobileOnlineOpen(false)} />
@@ -182,6 +185,7 @@ export function Shell() {
       {avatarsOpen && <AvatarManager onClose={() => setAvatarsOpen(false)} />}
       {debugOpen && <DebugTerminal onClose={() => setDebugOpen(false)} />}
       {nodeInfoOpen && <NodeInfo onClose={() => setNodeInfoOpen(false)} />}
+      {notificationsOpen && <NotificationSettings onClose={() => setNotificationsOpen(false)} />}
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} channelNames={channelNames} />}
     </div>
     </>

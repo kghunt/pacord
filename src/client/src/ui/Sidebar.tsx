@@ -11,6 +11,7 @@ export function Sidebar({
   onOpenDebug,
   onOpenNodeInfo,
   onOpenSearch,
+  onOpenNotifications,
 }: {
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
@@ -18,6 +19,7 @@ export function Sidebar({
   onOpenDebug: () => void;
   onOpenNodeInfo: () => void;
   onOpenSearch: () => void;
+  onOpenNotifications: () => void;
 }) {
   const { connectionState, profiles, connect, disconnect } = useConnectionStore();
   const { channels, peers, activeTarget, setActiveTarget, loadMessages, loadPosts, unreadCounts } = useChatStore();
@@ -25,19 +27,10 @@ export function Sidebar({
   const activeProfile = profiles.find((p) => p.id === connectionState.activeProfileId);
 
   const [version, setVersion] = useState<string | null>(null);
-  const [notifPerm, setNotifPerm] = useState<NotificationPermission>(
-    typeof Notification !== "undefined" ? Notification.permission : "denied"
-  );
 
   useEffect(() => {
     fetchVersion().then((v) => setVersion(v.version)).catch(() => {});
   }, []);
-
-  async function requestNotifications() {
-    if (typeof Notification === "undefined") return;
-    const result = await Notification.requestPermission();
-    setNotifPerm(result);
-  }
 
   async function handleStatusClick() {
     const status = connectionState.status;
@@ -168,17 +161,8 @@ export function Sidebar({
           <button className="icon-button" title="Avatars" onClick={onOpenAvatars}>
             🖼
           </button>
-          <button
-            className="icon-button"
-            style={{ color: notifPerm === "granted" ? "var(--online)" : notifPerm === "denied" ? "var(--danger)" : undefined }}
-            title={
-              notifPerm === "granted" ? "Notifications enabled" :
-              notifPerm === "denied" ? "Notifications blocked — enable in browser settings" :
-              "Enable notifications"
-            }
-            onClick={requestNotifications}
-          >
-            {notifPerm === "denied" ? "🔕" : "🔔"}
+          <button className="icon-button" title="Notification settings" onClick={onOpenNotifications}>
+            🔔
           </button>
           <button className="icon-button" title="Node terminal" onClick={onOpenTerminal}>
             ⌨
