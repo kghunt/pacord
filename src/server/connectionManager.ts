@@ -12,6 +12,7 @@ import { WpsClient } from "./protocol/wpsClient.js";
 import { broadcast, broadcastDebug, incrementUnread } from "./wsHub.js";
 import { sendNtfy } from "./ntfy.js";
 import * as channelsDb from "./db/channels.js";
+import * as metaDb from "./db/meta.js";
 
 const ACTIVE_PROFILE_META_KEY = "active_profile_id";
 const RETRY_INITIAL_MS = 2000;
@@ -75,12 +76,17 @@ export function connectProfile(id: number): void {
           (level === "replies" && (isReply || isMention));
         if (shouldNotify) {
           const chName = channelsDb.listChannels().find((c) => c.cid === ev.row.cid)?.name ?? `channel-${ev.row.cid}`;
-          sendNtfy(`#${chName}`, `${ev.row.fromCall}: ${ev.row.body}`);
+          const serverUrl = metaDb.getMeta("server_url")?.replace(/\/$/, "");
+          const slug = chName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const clickUrl = serverUrl ? `${serverUrl}/#channel-${slug}` : undefined;
+          sendNtfy(`#${chName}`, `${ev.row.fromCall}: ${ev.row.body}`, "bell", clickUrl);
         }
       }
     } else if (ev.type === "message" && ev.row.fromCall !== myCall) {
       incrementUnread(ev.row.fromCall);
-      sendNtfy(`DM from ${ev.row.fromCall}`, ev.row.body, "envelope");
+      const serverUrl = metaDb.getMeta("server_url")?.replace(/\/$/, "");
+      const clickUrl = serverUrl ? `${serverUrl}/#dm-${ev.row.fromCall.toLowerCase()}` : undefined;
+      sendNtfy(`DM from ${ev.row.fromCall}`, ev.row.body, "envelope", clickUrl);
     }
     broadcast(ev);
   });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { ChatPane } from "./ChatPane";
 import { OnlineUsersPane } from "./OnlineUsersPane";
@@ -36,6 +36,7 @@ export function Shell() {
   const activeTarget = useChatStore((s) => s.activeTarget);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
   const channels = useChatStore((s) => s.channels);
+  const { setActiveTarget, loadPosts, loadMessages } = useChatStore();
   const channelNames = Object.fromEntries(channels.map((c) => [c.cid, c.name]));
 
   useEffect(() => {
@@ -57,6 +58,49 @@ export function Shell() {
   useEffect(() => {
     if (profilesLoaded && profiles.length === 0) setSettingsOpen(true);
   }, [profilesLoaded, profiles.length]);
+
+  // Deep-link navigation from ntfy notification click URLs.
+  // Hash format: #channel-{slug} or #dm-{callsign}
+  const navigateToHash = useCallback((hash: string) => {
+    if (!hash) return;
+    if (hash.startsWith("#channel-")) {
+      const slug = hash.slice("#channel-".length);
+      const ch = channels.find(
+        (c) => (c.name || `channel-${c.cid}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") === slug
+      );
+      if (ch) {
+        setActiveTarget({ type: "channel", cid: ch.cid });
+        loadPosts(ch.cid);
+        sendAction({ type: "mark_read", key: `channel:${ch.cid}` });
+        history.replaceState(null, "", window.location.pathname);
+      }
+    } else if (hash.startsWith("#dm-")) {
+      const peer = hash.slice("#dm-".length).toUpperCase();
+      if (peer) {
+        setActiveTarget({ type: "dm", peer });
+        loadMessages(peer);
+        sendAction({ type: "mark_read", key: peer });
+        history.replaceState(null, "", window.location.pathname);
+      }
+    }
+  }, [channels, setActiveTarget, loadPosts, loadMessages]);
+
+  // On initial load with channels available, process any hash in the URL.
+  const deepLinkProcessed = useRef(false);
+  useEffect(() => {
+    if (deepLinkProcessed.current || channels.length === 0) return;
+    const hash = window.location.hash;
+    if (!hash) { deepLinkProcessed.current = true; return; }
+    navigateToHash(hash);
+    deepLinkProcessed.current = true;
+  }, [channels, navigateToHash]);
+
+  // When already open, handle notification taps that change the hash.
+  useEffect(() => {
+    function onHashChange() { navigateToHash(window.location.hash); }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [navigateToHash]);
 
   useEffect(() => {
     fetchVersion().then((v) => {

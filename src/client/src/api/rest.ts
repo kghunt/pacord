@@ -90,6 +90,7 @@ export interface AppSettings {
   avatarCheckIntervalMinutes: number;
   ntfyUrl: string;
   ntfyToken: string;
+  serverUrl: string;
 }
 
 export const fetchSettings = () =>

@@ -15,6 +15,7 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
   const [avatarCheckMinutes, setAvatarCheckMinutes] = useState<number>(0);
   const [ntfyUrl, setNtfyUrl] = useState("");
   const [ntfyToken, setNtfyToken] = useState("");
+  const [serverUrl, setServerUrl] = useState("");
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -24,6 +25,7 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
       setAvatarCheckMinutes(s.avatarCheckIntervalMinutes);
       setNtfyUrl(s.ntfyUrl);
       setNtfyToken(s.ntfyToken);
+      setServerUrl(s.serverUrl);
     }).catch(() => {});
   }, []);
 
@@ -36,6 +38,7 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
         avatarCheckIntervalMinutes: avatarCheckMinutes,
         ntfyUrl,
         ntfyToken,
+        serverUrl,
       });
       setSettingsSaved(true);
     } finally {
@@ -172,6 +175,19 @@ export function ProfileManager({ onClose }: { onClose: () => void }) {
             HTTPS or browser permissions. Install the ntfy app, subscribe to your topic, then paste the full topic
             URL here. Leave blank to disable.
           </p>
+          <div className="form-row" style={{ marginBottom: 6 }}>
+            <label>Pacord server URL</label>
+            <input
+              type="url"
+              placeholder="http://192.168.1.50:3000"
+              value={serverUrl}
+              onChange={(e) => { setServerUrl(e.target.value); setSettingsSaved(false); }}
+            />
+            <p className="form-hint" style={{ marginTop: 4 }}>
+              Used to add a deep link in notifications — tapping one opens Pacord at the right channel or DM.
+              Use the URL you'd type in a browser to reach this app from your phone.
+            </p>
+          </div>
           <div className="form-row" style={{ marginBottom: 6 }}>
             <label>ntfy topic URL</label>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

@@ -1,6 +1,6 @@
 import * as metaDb from "./db/meta.js";
 
-export async function sendNtfy(title: string, body: string, tags = "bell"): Promise<void> {
+export async function sendNtfy(title: string, body: string, tags = "bell", clickUrl?: string): Promise<void> {
   const url = metaDb.getMeta("ntfy_url")?.trim();
   if (!url) return;
   const token = metaDb.getMeta("ntfy_token")?.trim();
@@ -11,6 +11,7 @@ export async function sendNtfy(title: string, body: string, tags = "bell"): Prom
     "Content-Type": "text/plain; charset=utf-8",
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (clickUrl) headers["Click"] = clickUrl;
 
   try {
     await fetch(url, {
