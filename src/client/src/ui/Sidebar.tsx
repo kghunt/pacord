@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useConnectionStore, displayNameFor, fullDisplayFor } from "../state/connectionStore";
 import { useChatStore } from "../state/chatStore";
-import { fetchVersion } from "../api/rest";
+import { fetchVersion, createChannel } from "../api/rest";
 import { sendAction } from "../api/socket";
 
 export function Sidebar({
@@ -27,10 +27,41 @@ export function Sidebar({
   const activeProfile = profiles.find((p) => p.id === connectionState.activeProfileId);
 
   const [version, setVersion] = useState<string | null>(null);
+  const [newChannelOpen, setNewChannelOpen] = useState(false);
+  const [newChannelCid, setNewChannelCid] = useState("");
+  const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelError, setNewChannelError] = useState<string | null>(null);
+  const [newChannelSaving, setNewChannelSaving] = useState(false);
+  const setChannels = useChatStore((s) => s.setChannels);
 
   useEffect(() => {
     fetchVersion().then((v) => setVersion(v.version)).catch(() => {});
   }, []);
+
+  async function handleCreateChannel() {
+    const cid = Number(newChannelCid);
+    if (!Number.isInteger(cid)) {
+      setNewChannelError("cid must be a whole number — the id WPS uses for this channel.");
+      return;
+    }
+    if (channels.some((c) => c.cid === cid)) {
+      setNewChannelError(`Channel ${cid} already exists.`);
+      return;
+    }
+    setNewChannelSaving(true);
+    setNewChannelError(null);
+    try {
+      const created = await createChannel(cid, newChannelName.trim(), "");
+      setChannels([...channels, created]);
+      setNewChannelOpen(false);
+      setNewChannelCid("");
+      setNewChannelName("");
+    } catch {
+      setNewChannelError("Failed to create channel — check the server is reachable.");
+    } finally {
+      setNewChannelSaving(false);
+    }
+  }
 
   async function handleStatusClick() {
     const status = connectionState.status;
@@ -88,7 +119,17 @@ export function Sidebar({
 
       <div className="sidebar-scroll">
         <div className="sidebar-section">
-          <div className="sidebar-section-title">Channels</div>
+          <div className="sidebar-section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            Channels
+            <span
+              role="button"
+              title="Add a channel that's new on WPS"
+              onClick={() => setNewChannelOpen(true)}
+              style={{ cursor: "pointer", fontSize: 14 }}
+            >
+              +
+            </span>
+          </div>
           {channels.map((ch) => {
             const unread = unreadCounts[`channel:${ch.cid}`] ?? 0;
             return (
@@ -175,6 +216,45 @@ export function Sidebar({
           </button>
         </div>
       </div>
+
+      {newChannelOpen && (
+        <div className="modal-overlay" onClick={() => setNewChannelOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>New channel</h2>
+            <p className="form-hint" style={{ marginTop: 0 }}>
+              WPS has no channel list of its own — register the channel here with the numeric id
+              (cid) WPS uses for it, so Pacord knows to show it.
+            </p>
+            <div className="form-row">
+              <label>Channel id (cid)</label>
+              <input
+                type="number"
+                value={newChannelCid}
+                onChange={(e) => { setNewChannelCid(e.target.value); setNewChannelError(null); }}
+                placeholder="e.g. 7"
+              />
+            </div>
+            <div className="form-row">
+              <label>Name</label>
+              <input
+                type="text"
+                value={newChannelName}
+                onChange={(e) => setNewChannelName(e.target.value)}
+                placeholder="e.g. pacagotchi"
+              />
+            </div>
+            {newChannelError && (
+              <p style={{ color: "var(--danger)", fontSize: 12 }}>{newChannelError}</p>
+            )}
+            <div className="form-actions">
+              <button className="btn" onClick={() => setNewChannelOpen(false)}>Cancel</button>
+              <button className="btn primary" onClick={handleCreateChannel} disabled={newChannelSaving || !newChannelCid.trim()}>
+                {newChannelSaving ? "Adding…" : "Add channel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import type { ConnectProfile, ServerEvent, ReactionEntry } from "../../shared/ty
 import { emojiToWire } from "../../shared/emoji.js";
 import { RhpWebSocketTransport } from "./rhpWebSocket.js";
 import { RhpTcpTransport } from "./rhpTcp.js";
+import { DirectTcpTransport } from "./directTcp.js";
 import type { ByteStreamTransport } from "./transport.js";
 import { runConnectScript, type HopStep } from "./hopScript.js";
 import { FrameDecoder } from "./wpsCodec.js";
@@ -157,6 +158,8 @@ export class WpsClient extends EventEmitter {
         return new RhpWebSocketTransport(p.host, p.port, cfg);
       case "rhp-tcp":
         return new RhpTcpTransport(p.host, p.port, cfg);
+      case "direct-tcp":
+        return new DirectTcpTransport(p.host, p.port);
       default:
         throw new Error(`transport ${p.transport} is not implemented`);
     }

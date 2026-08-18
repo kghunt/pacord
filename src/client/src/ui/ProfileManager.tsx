@@ -288,6 +288,7 @@ function ProfileForm({ profile, onDone }: { profile: ConnectProfile | null; onDo
             <select value={transport} onChange={(e) => onTransportChange(e.target.value as Transport)}>
               <option value="rhp-ws">RHP over WebSocket (node's web admin port)</option>
               <option value="rhp-tcp">RHP over raw TCP (RHPPORT in XROUTER.CFG)</option>
+              <option value="direct-tcp">Direct TCP (WPS server's own port, no AX.25)</option>
             </select>
           </div>
           <div className="form-row">
