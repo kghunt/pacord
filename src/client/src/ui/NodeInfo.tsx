@@ -210,6 +210,29 @@ function parseXRouterRoutes(text: string): RouteEntry[] {
   return result;
 }
 
+interface NodeEnrichment {
+  quality: number;
+  obscount: number;
+  via: string | null;
+  rtt: number | null;
+}
+
+// Parse the output of "N <callsign>" to extract quality/obs/via/rtt.
+// XRouter formats vary; we use broad regexes against the whole text block.
+function parseNodeDetail(text: string): NodeEnrichment | null {
+  const qualMatch = text.match(/qual(?:ity)?[:\s=]+(\d+)/i);
+  const obsMatch = text.match(/obs(?:count|olesc\w+)?[:\s=]+(\d+)/i);
+  const viaMatch = text.match(/(?:route\s+via|via\s*:?\s*)([A-Z0-9][A-Z0-9-]{1,9})/i);
+  const rttMatch = text.match(/rtt[:\s=]+(\d+)/i);
+  if (!qualMatch && !obsMatch) return null;
+  return {
+    quality: qualMatch ? parseInt(qualMatch[1]!) || 0 : 0,
+    obscount: obsMatch ? parseInt(obsMatch[1]!) || 0 : 0,
+    via: viaMatch ? viaMatch[1]!.toUpperCase() : null,
+    rtt: rttMatch ? parseInt(rttMatch[1]!) || null : null,
+  };
+}
+
 function parseXRouterMheard(text: string): NormalizedHeard[] {
   const lines = text.split(/\r?\n/);
   let headerIdx = -1;
@@ -373,10 +396,13 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
   const [nodeDetailLoading, setNodeDetailLoading] = useState(false);
   const [xrInfo, setXrInfo] = useState<{ version: string; ports: string; xrstats: string } | null>(null);
   const [xrInfoLoading, setXrInfoLoading] = useState(false);
-  const [nodeSort, setNodeSort] = useState<{ col: "callsign" | "alias"; dir: 1 | -1 }>({
+  const [nodeSort, setNodeSort] = useState<{ col: "callsign" | "alias" | "quality" | "obscount"; dir: 1 | -1 }>({
     col: "callsign",
     dir: 1,
   });
+  // Per-node enrichment from "N <callsign>" bulk fetch
+  const [enrichedData, setEnrichedData] = useState<Map<string, NodeEnrichment>>(new Map());
+  const [enrichProgress, setEnrichProgress] = useState<{ done: number; total: number } | null>(null);
 
   const fetchNodes = async () => {
     if (!profile?.adminPort) return;
@@ -460,6 +486,29 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
     setXrInfoLoading(false);
   }, [profile?.adminPort]);
 
+  const fetchAllDetails = useCallback(async () => {
+    if (nodes.state !== "ok" || enrichProgress !== null) return;
+    const callsigns = nodes.data.map((n) => n.callsign);
+    setEnrichProgress({ done: 0, total: callsigns.length });
+    const newMap = new Map<string, NodeEnrichment>();
+
+    // Fetch 5 at a time to avoid overwhelming XRouter's HTTP server.
+    const BATCH = 5;
+    for (let i = 0; i < callsigns.length; i += BATCH) {
+      const batch = callsigns.slice(i, i + BATCH);
+      await Promise.all(batch.map(async (cs) => {
+        try {
+          const { text } = await fetchNodeCmd(`N ${cs}`);
+          const detail = parseNodeDetail(text);
+          if (detail) newMap.set(cs, detail);
+        } catch { /* skip */ }
+      }));
+      setEnrichProgress({ done: Math.min(i + BATCH, callsigns.length), total: callsigns.length });
+    }
+    setEnrichedData(new Map(newMap));
+    setEnrichProgress(null);
+  }, [nodes, enrichProgress]);
+
   const handleSelectNode = useCallback(async (callsign: string) => {
     if (selectedNode === callsign) {
       setSelectedNode(null);
@@ -500,18 +549,29 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  const sortedNodes = useMemo(() => {
+  const mergedNodes = useMemo(() => {
     if (nodes.state !== "ok") return [];
-    return [...nodes.data].sort((a, b) => {
-      const av = a[nodeSort.col] ?? "";
-      const bv = b[nodeSort.col] ?? "";
-      return nodeSort.dir * String(av).localeCompare(String(bv));
+    return nodes.data.map((n) => {
+      const e = enrichedData.get(n.callsign);
+      return e ? { ...n, quality: e.quality, obscount: e.obscount, via: e.via, rtt: e.rtt } : n;
     });
-  }, [nodes, nodeSort]);
+  }, [nodes, enrichedData]);
 
-  function toggleSort(col: "callsign" | "alias") {
+  const isEnriched = enrichedData.size > 0;
+
+  const sortedNodes = useMemo(() => {
+    return [...mergedNodes].sort((a, b) => {
+      const col = nodeSort.col;
+      if (col === "quality" || col === "obscount") {
+        return nodeSort.dir * ((a[col] ?? 0) - (b[col] ?? 0));
+      }
+      return nodeSort.dir * String(a[col] ?? "").localeCompare(String(b[col] ?? ""));
+    });
+  }, [mergedNodes, nodeSort]);
+
+  function toggleSort(col: "callsign" | "alias" | "quality" | "obscount") {
     setNodeSort((prev) =>
-      prev.col === col ? { col, dir: (prev.dir * -1) as 1 | -1 } : { col, dir: 1 }
+      prev.col === col ? { col, dir: (prev.dir * -1) as 1 | -1 } : { col, dir: col === "quality" ? -1 : 1 }
     );
   }
 
@@ -520,8 +580,8 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
   const MAP_H = 440;
 
   const mapLayout = useMemo(() => {
-    if (nodes.state !== "ok" || nodes.data.length === 0) return null;
-    const nd = nodes.data;
+    if (nodes.state !== "ok" || mergedNodes.length === 0) return null;
+    const nd = mergedNodes;
 
     const graphNodes: GraphNode[] = myCall
       ? [{ id: myCall, label: myCall, isOurs: true }, ...nd.map((n) => ({ id: n.callsign, label: n.alias || n.callsign, isOurs: false }))]
@@ -543,7 +603,7 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
 
     const positions = runForceLayout(graphNodes, edges, MAP_W, MAP_H);
     return { graphNodes, edges, positions };
-  }, [nodes, myCall]);
+  }, [mergedNodes, myCall]);
 
   const TAB_LABELS: Record<Tab, string> = {
     nodes: "Nodes",
@@ -577,6 +637,8 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
                     if (tab === "xrinfo") fetchXrInfo();
                     setSelectedNode(null);
                     setNodeDetail(null);
+                    setEnrichedData(new Map());
+                    setEnrichProgress(null);
                   }}
                   title="Re-run node commands"
                 >
@@ -623,6 +685,9 @@ export function NodeInfo({ onClose }: { onClose: () => void }) {
                 sort={nodeSort}
                 onToggleSort={toggleSort}
                 routes={routes}
+                isEnriched={isEnriched}
+                enrichProgress={enrichProgress}
+                onFetchAllDetails={fetchAllDetails}
                 selectedNode={selectedNode}
                 nodeDetail={nodeDetail}
                 nodeDetailLoading={nodeDetailLoading}
@@ -729,6 +794,9 @@ function NodeTab({
   sort,
   onToggleSort,
   routes,
+  isEnriched,
+  enrichProgress,
+  onFetchAllDetails,
   selectedNode,
   nodeDetail,
   nodeDetailLoading,
@@ -737,8 +805,11 @@ function NodeTab({
   result: FetchResult<NormalizedNode[]>;
   sorted: NormalizedNode[];
   sort: { col: string; dir: 1 | -1 };
-  onToggleSort: (col: "callsign" | "alias") => void;
+  onToggleSort: (col: "callsign" | "alias" | "quality" | "obscount") => void;
   routes: RouteEntry[];
+  isEnriched: boolean;
+  enrichProgress: { done: number; total: number } | null;
+  onFetchAllDetails: () => void;
   selectedNode: string | null;
   nodeDetail: { text: string } | null;
   nodeDetailLoading: boolean;
@@ -747,16 +818,60 @@ function NodeTab({
   if (result.state !== "ok") return <LoadState result={result} />;
   if (sorted.length === 0) return <p className="node-info-placeholder">No nodes in routing table.</p>;
 
+  const colSpan = isEnriched ? 6 : 3;
+
   return (
     <div>
       <RoutesBar routes={routes} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          {enrichProgress
+            ? `Fetching node details… ${enrichProgress.done}/${enrichProgress.total}`
+            : isEnriched
+              ? `${sorted.length} nodes — quality/obs/via enriched`
+              : `${sorted.length} nodes`}
+        </span>
+        {!isEnriched && !enrichProgress && (
+          <button
+            className="btn small"
+            onClick={onFetchAllDetails}
+            title={`Fetch N <callsign> for all ${sorted.length} nodes to get quality, obs, via, and RTT data`}
+          >
+            Fetch all details
+          </button>
+        )}
+        {enrichProgress && (
+          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            <div
+              style={{
+                width: 120, height: 6, background: "var(--surface)", borderRadius: 3, overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${(enrichProgress.done / enrichProgress.total) * 100}%`,
+                  background: "var(--accent)",
+                  transition: "width 0.2s",
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
       <div style={{ overflowX: "auto" }}>
         <table className="node-table">
           <thead>
             <tr>
               <th onClick={() => onToggleSort("callsign")}>Callsign<SortArrow col="callsign" sort={sort} /></th>
               <th onClick={() => onToggleSort("alias")}>Alias<SortArrow col="alias" sort={sort} /></th>
-              <th style={{ width: 24, opacity: 0.5, fontSize: 11 }} title="Click any row to fetch node detail">▶</th>
+              {isEnriched && <>
+                <th onClick={() => onToggleSort("quality")} title="0–255; higher is better">Quality<SortArrow col="quality" sort={sort} /></th>
+                <th onClick={() => onToggleSort("obscount")} title="Obsolescence 0–6; lower is fresher">Obs<SortArrow col="obscount" sort={sort} /></th>
+                <th>Via</th>
+                <th>RTT</th>
+              </>}
+              <th style={{ width: 20, opacity: 0.4, fontSize: 11 }} title="Click row for node detail">▶</th>
             </tr>
           </thead>
           <tbody>
@@ -766,15 +881,27 @@ function NodeTab({
                   key={n.callsign}
                   style={{ cursor: "pointer", background: selectedNode === n.callsign ? "var(--surface)" : undefined }}
                   onClick={() => onSelectNode(n.callsign)}
-                  title="Click to fetch node detail"
                 >
                   <td style={{ fontWeight: 600 }}>{n.callsign}</td>
                   <td style={{ color: "var(--text-muted)" }}>{n.alias || "—"}</td>
+                  {isEnriched && <>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <div className="quality-bar">
+                          <div className="quality-fill" style={{ width: `${(n.quality / 255) * 100}%`, background: qualColor(n.quality) }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: "var(--text-muted)", minWidth: 22 }}>{n.quality}</span>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "center", color: n.obscount >= 4 ? "var(--danger)" : "var(--text-muted)" }}>{n.obscount}</td>
+                    <td style={{ color: "var(--text-muted)", fontSize: 11 }}>{n.via || "direct"}</td>
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 11 }}>{n.rtt !== null ? `${n.rtt}ms` : "—"}</td>
+                  </>}
                   <td style={{ color: "var(--text-muted)", fontSize: 11 }}>{selectedNode === n.callsign ? "▼" : "▶"}</td>
                 </tr>
                 {selectedNode === n.callsign && (
                   <tr key={`${n.callsign}-detail`}>
-                    <td colSpan={3} style={{ padding: "8px 12px", background: "var(--bg-primary)" }}>
+                    <td colSpan={colSpan} style={{ padding: "8px 12px", background: "var(--bg-primary)" }}>
                       {nodeDetailLoading
                         ? <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Fetching…</span>
                         : nodeDetail
@@ -788,9 +915,6 @@ function NodeTab({
             ))}
           </tbody>
         </table>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, textAlign: "right" }}>
-          {sorted.length} node{sorted.length === 1 ? "" : "s"}
-        </div>
       </div>
     </div>
   );
