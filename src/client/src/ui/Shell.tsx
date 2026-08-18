@@ -41,6 +41,25 @@ export function Shell() {
   const { setActiveTarget, loadPosts, loadMessages } = useChatStore();
   const channelNames = Object.fromEntries(channels.map((c) => [c.cid, c.name]));
 
+  // Push a history entry when the user opens a channel/DM on mobile so the
+  // Android back button closes the chat pane instead of leaving the app.
+  const wasShowingChat = useRef(!!activeTarget);
+  useEffect(() => {
+    const showing = !!activeTarget;
+    if (showing && !wasShowingChat.current) {
+      history.pushState({ mobileChatOpen: true }, "");
+    }
+    wasShowingChat.current = showing;
+  }, [activeTarget]);
+
+  useEffect(() => {
+    function onPopState() {
+      if (activeTarget) setActiveTarget(null);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [activeTarget, setActiveTarget]);
+
   useEffect(() => {
     const total = Object.values(unreadCounts).reduce((sum, n) => sum + n, 0);
     document.title = total > 0 ? `(${total > 99 ? "99+" : total}) Pacord` : "Pacord";
