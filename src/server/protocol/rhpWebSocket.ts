@@ -63,7 +63,13 @@ export class RhpWebSocketTransport implements ByteStreamTransport {
 
   async send(data: Buffer): Promise<void> {
     if (!this.session) throw new Error("transport not open");
-    await this.session.send(data);
+    // BPQ's RHP-over-WebSocket miscodes a trailing \n in the data field,
+    // so strip it and send only the bare \r frame terminator.
+    let payload = data;
+    if (payload.length >= 2 && payload[payload.length - 2] === 0x0d && payload[payload.length - 1] === 0x0a) {
+      payload = payload.subarray(0, payload.length - 1);
+    }
+    await this.session.send(payload);
   }
 
   async recv(): Promise<Buffer> {

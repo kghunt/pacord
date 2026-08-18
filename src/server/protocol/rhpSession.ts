@@ -105,18 +105,11 @@ export class RhpSession {
     if (this.handle === null || this.closed) {
       throw new Error("RHP socket not open");
     }
-    // Match the production web client's wire shape: terminate WPS frames
-    // with bare `\r`, not `\r\n` — some RHP servers (BPQ) miscode the
-    // JSON-escaped `\n`. Harmless no-op for servers that don't care.
-    let payload = data;
-    if (payload.length >= 2 && payload[payload.length - 2] === 0x0d && payload[payload.length - 1] === 0x0a) {
-      payload = payload.subarray(0, payload.length - 1);
-    }
     await this.sendMessage({
       type: "send",
       id: this.id(),
       handle: this.handle,
-      data: payload.toString("latin1"),
+      data: data.toString("latin1"),
     });
   }
 
