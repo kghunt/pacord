@@ -67,6 +67,7 @@ export function listAvatarCallsigns(): string[] {
 // bug that failed to strip the data URI prefix before base64 decoding.
 // Call once at startup; they will be re-downloaded automatically.
 export function purgeCorruptAvatars(): number {
+  if (!(db as unknown)) return 0;
   const result = db.prepare("DELETE FROM avatars WHERE mime = 'application/octet-stream'").run();
   return Number(result.changes);
 }

@@ -62,10 +62,10 @@ app.setNotFoundHandler((req, reply) => {
   reply.code(404).send({ error: "not found" });
 });
 
+autoConnectOnStartup();
+
 const purged = purgeCorruptAvatars();
 if (purged > 0) console.log(`[startup] Purged ${purged} corrupt avatar(s) — they will re-download.`);
-
-autoConnectOnStartup();
 
 app.listen({ port: PORT, host: "0.0.0.0" }).catch((err) => {
   app.log.error(err);
