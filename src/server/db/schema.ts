@@ -93,6 +93,11 @@ CREATE TABLE IF NOT EXISTS avatars (
   mime        TEXT NOT NULL,
   ts          INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS profile_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;
 
 export const DEFAULT_CHANNELS: Array<{ cid: number; name: string; description: string }> = [

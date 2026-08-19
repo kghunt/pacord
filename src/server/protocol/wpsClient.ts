@@ -18,7 +18,7 @@ import * as codec from "./wpsCodec.js";
 import * as messagesDb from "../db/messages.js";
 import * as postsDb from "../db/posts.js";
 import * as hamsDb from "../db/hams.js";
-import * as metaDb from "../db/meta.js";
+import * as profileMeta from "../db/profileMeta.js";
 import * as channelsDb from "../db/channels.js";
 import * as avatarsDb from "../db/avatars.js";
 
@@ -183,10 +183,10 @@ export class WpsClient extends EventEmitter {
         t: "c",
         n: this.profile.displayName,
         c: this.appCall,
-        lm: metaDb.getMetaNumber("last_message", 0),
-        le: metaDb.getMetaNumber("last_emoji", 0),
-        led: metaDb.getMetaNumber("last_edit", 0),
-        lhts: metaDb.getMetaNumber("last_ham_ts", 0),
+        lm: profileMeta.getProfileMetaNumber("last_message", 0),
+        le: profileMeta.getProfileMetaNumber("last_emoji", 0),
+        led: profileMeta.getProfileMetaNumber("last_edit", 0),
+        lhts: profileMeta.getProfileMetaNumber("last_ham_ts", 0),
         v: CLIENT_VERSION,
       };
       await stream.send(codec.encode(record));
@@ -298,7 +298,7 @@ export class WpsClient extends EventEmitter {
   // (cheap); the full fetch pulls every avatar updated since our stored
   // cursor, so a repeat request only pulls what's new.
   async requestAvatars(countOnly: boolean): Promise<void> {
-    const body: Record<string, unknown> = { t: "ae", lats: metaDb.getMetaNumber("last_avatar_ts", 0) };
+    const body: Record<string, unknown> = { t: "ae", lats: profileMeta.getProfileMetaNumber("last_avatar_ts", 0) };
     if (countOnly) body.co = 1;
     await this.send(body);
   }
@@ -307,7 +307,7 @@ export class WpsClient extends EventEmitter {
     const edts = Date.now();
     await this.send({ t: "med", _id: msgId, m: newText, edts });
     messagesDb.applyMessageEdit(msgId, newText, edts);
-    metaDb.bumpMeta("last_edit", edts);
+    profileMeta.bumpProfileMeta("last_edit", edts);
     const row = messagesDb.lookupMessageRow(msgId);
     if (row) this.emitEvent({ type: "message", row });
   }
@@ -316,7 +316,7 @@ export class WpsClient extends EventEmitter {
     const edts = Date.now();
     await this.send({ t: "cped", cid, ts, p: newText, edts });
     postsDb.applyPostEdit(cid, ts, newText, edts);
-    metaDb.bumpMeta("last_edit", edts);
+    profileMeta.bumpProfileMeta("last_edit", edts);
     const row = postsDb.lookupPost(cid, ts);
     if (row) this.emitEvent({ type: "post", row });
   }
@@ -331,7 +331,7 @@ export class WpsClient extends EventEmitter {
     } else {
       messagesDb.removeMessageEmoji(msgId, wire, this.appCall);
     }
-    metaDb.bumpMeta("last_emoji", ets);
+    profileMeta.bumpProfileMeta("last_emoji", ets);
     const row = messagesDb.lookupMessageRow(msgId);
     if (row) this.emitEvent({ type: "message", row });
   }
@@ -498,7 +498,7 @@ export class WpsClient extends EventEmitter {
           deliveredTs: fromCall === myCall ? this.selfDeliveredTs(ts) : null,
           receivedTs: fromCall === myCall ? null : this.nowMs(),
         });
-        metaDb.bumpMeta("last_message", ts);
+        profileMeta.bumpProfileMeta("last_message", ts);
         // Acknowledge receipt to the sender so their delivery tick updates.
         if (fromCall !== myCall) {
           this.send({ t: "mr", _id: msgId }).catch(() => {});
@@ -524,7 +524,7 @@ export class WpsClient extends EventEmitter {
             receivedTs: fromCall === myCall ? null : this.nowMs(),
           });
         });
-        if (highestTs) metaDb.bumpMeta("last_message", highestTs);
+        if (highestTs) profileMeta.bumpProfileMeta("last_message", highestTs);
         if (rows.length) this.emitEvent({ type: "message_batch", rows });
         break;
       }
@@ -534,7 +534,7 @@ export class WpsClient extends EventEmitter {
         if (!msgId || body === undefined) break;
         const edts = typeof obj.edts === "number" ? obj.edts : this.nowMs();
         messagesDb.applyMessageEdit(msgId, body, edts);
-        metaDb.bumpMeta("last_edit", edts);
+        profileMeta.bumpProfileMeta("last_edit", edts);
         const row = messagesDb.lookupMessageRow(msgId);
         if (row) this.emitEvent({ type: "message", row });
         break;
@@ -552,7 +552,7 @@ export class WpsClient extends EventEmitter {
           const row = messagesDb.lookupMessageRow(msgId);
           if (row) this.emitEvent({ type: "message", row });
         }
-        if (highest) metaDb.bumpMeta("last_edit", highest);
+        if (highest) profileMeta.bumpProfileMeta("last_edit", highest);
         break;
       }
       case "mr": {
@@ -574,7 +574,7 @@ export class WpsClient extends EventEmitter {
         if (!row) break;
         const peer = row.fromCall === myCall ? row.toCall : row.fromCall;
         messagesDb.applyMessageEmojiList(msgId, peer, emojis, ets);
-        metaDb.bumpMeta("last_emoji", ets);
+        profileMeta.bumpProfileMeta("last_emoji", ets);
         const updated = messagesDb.lookupMessageRow(msgId);
         if (updated) this.emitEvent({ type: "message", row: updated });
         break;
@@ -595,7 +595,7 @@ export class WpsClient extends EventEmitter {
           const updated = messagesDb.lookupMessageRow(msgId);
           if (updated) this.emitEvent({ type: "message", row: updated });
         }
-        if (highest) metaDb.bumpMeta("last_emoji", highest);
+        if (highest) profileMeta.bumpProfileMeta("last_emoji", highest);
         break;
       }
       case "cp": {
@@ -724,7 +724,7 @@ export class WpsClient extends EventEmitter {
           this.emitEvent({ type: "ham", ham: { callsign: h.c.toUpperCase(), name: h.n ?? "", ts: h.ts ?? 0 } });
           if ((h.ts ?? 0) > highestHamTs) highestHamTs = h.ts ?? 0;
         }
-        if (highestHamTs) metaDb.bumpMeta("last_ham_ts", highestHamTs);
+        if (highestHamTs) profileMeta.bumpProfileMeta("last_ham_ts", highestHamTs);
         break;
       }
       case "ar": {
@@ -746,7 +746,7 @@ export class WpsClient extends EventEmitter {
         if (commaIdx >= 0) avatarRaw = avatarRaw.slice(commaIdx + 1);
         const ts = typeof obj.ts === "number" ? obj.ts : Math.floor(Date.now() / 1000);
         avatarsDb.upsertAvatar(callsign, avatarRaw, ts);
-        metaDb.bumpMeta("last_avatar_ts", ts);
+        profileMeta.bumpProfileMeta("last_avatar_ts", ts);
         this.emitEvent({ type: "avatar", callsign: callsign.toUpperCase() });
         break;
       }
