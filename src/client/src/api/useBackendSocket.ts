@@ -129,9 +129,15 @@ export function useBackendSocket(): void {
         return;
       }
       switch (ev.type) {
-        case "connection_state":
+        case "connection_state": {
+          const prevProfileId = useConnectionStore.getState().connectionState.activeProfileId;
           useConnectionStore.getState().setConnectionState(ev.state);
+          if (ev.state.activeProfileId !== prevProfileId) {
+            useChatStore.getState().resetData();
+            useConnectionStore.getState().resetProfileData();
+          }
           break;
+        }
         case "message": {
           useChatStore.getState().upsertMessage(ev.row);
           const { activeProfileId } = useConnectionStore.getState().connectionState;

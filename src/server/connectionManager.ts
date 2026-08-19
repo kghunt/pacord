@@ -9,7 +9,8 @@ import type { ConnectionState, ServerEvent } from "../shared/types.js";
 import * as profilesDb from "./db/profiles.js";
 import * as metaDb from "./db/meta.js";
 import { WpsClient } from "./protocol/wpsClient.js";
-import { broadcast, broadcastDebug, incrementUnread } from "./wsHub.js";
+import { broadcast, broadcastDebug, incrementUnread, clearAllUnread } from "./wsHub.js";
+import { openProfileDb } from "./db/index.js";
 import { sendNtfy } from "./ntfy.js";
 import * as channelsDb from "./db/channels.js";
 
@@ -47,6 +48,8 @@ export function connectProfile(id: number): void {
   const profile = profilesDb.getProfile(id);
   if (!profile) throw new Error(`profile ${id} not found`);
   teardownActive();
+  openProfileDb(id);
+  clearAllUnread();
 
   activeProfileId = id;
   lastError = null;

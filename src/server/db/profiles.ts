@@ -1,4 +1,4 @@
-import { db } from "./index.js";
+import { mainDb as db } from "./index.js";
 import type { ConnectProfile, NewConnectProfile, HopStep } from "../../shared/types.js";
 
 interface ProfileRow {

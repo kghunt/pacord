@@ -40,6 +40,7 @@ interface ChatStore {
   upsertPostBatch: (cid: number, rows: PostRow[]) => void;
   setServerUnreadCounts: (counts: Record<string, number>) => void;
   recordFirstUnread: (key: string, tsMs: number) => void;
+  resetData: () => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -117,15 +118,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       postsByChannel: { ...s.postsByChannel, [cid]: mergePosts(s.postsByChannel[cid] ?? [], rows) },
     })),
 
-  // Apply the server's authoritative counts. Locally-cleared keys (value 0)
-  // are preserved so a briefly-stale broadcast doesn't re-add a badge the
-  // user just dismissed. The server's own mark_read broadcast quickly follows
-  // and converges everyone to the same value.
+  // Apply the server's authoritative counts. The local zero for the currently
+  // active target wins over the broadcast so we don't flicker a badge back
+  // while mark_read is in flight. Keys for targets no longer active are not
+  // preserved — if a new post arrives after navigating away the server count
+  // correctly shows the badge.
   setServerUnreadCounts: (counts) =>
     set((s) => {
-      const localZeros = Object.fromEntries(
-        Object.entries(s.unreadCounts).filter(([, v]) => v === 0).map(([k]) => [k, 0])
-      );
+      const activeKey =
+        s.activeTarget?.type === "dm"
+          ? s.activeTarget.peer
+          : s.activeTarget?.type === "channel"
+            ? `channel:${s.activeTarget.cid}`
+            : null;
+      const localZeros =
+        activeKey !== null && s.unreadCounts[activeKey] === 0
+          ? { [activeKey]: 0 }
+          : {};
       const merged = { ...counts, ...localZeros };
       // Seed firstUnreadMs for newly-discovered unread keys.
       const firstUnreadMs = { ...s.firstUnreadMs };
@@ -142,4 +151,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         ? s
         : { firstUnreadMs: { ...s.firstUnreadMs, [key]: tsMs } }
     ),
+
+  resetData: () =>
+    set({
+      channels: [],
+      peers: [],
+      messagesByPeer: {},
+      postsByChannel: {},
+      activeTarget: null,
+      unreadCounts: {},
+      firstUnreadMs: {},
+      jumpToKey: null,
+    }),
 }));

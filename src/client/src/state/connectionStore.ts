@@ -31,6 +31,7 @@ interface ConnectionStore {
   setWpsStats: (s: WpsStats) => void;
   welcomeReceived: boolean;
   setWelcomeReceived: (v: boolean) => void;
+  resetProfileData: () => void;
 }
 
 export const useConnectionStore = create<ConnectionStore>((set) => ({
@@ -102,6 +103,16 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
     set((s) => ({ avatarsReceived: s.avatarsReceived === null ? 1 : s.avatarsReceived + 1 })),
   setWpsStats: (stats) => set({ wpsStats: stats }),
   setWelcomeReceived: (v) => set({ welcomeReceived: v }),
+
+  resetProfileData: () =>
+    set({
+      hams: {},
+      avatarVersions: {},
+      avatarCount: null,
+      avatarsReceived: null,
+      wpsStats: null,
+      welcomeReceived: false,
+    }),
 }));
 
 export function displayNameFor(callsign: string): string {

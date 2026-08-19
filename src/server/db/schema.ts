@@ -1,4 +1,5 @@
-export const SCHEMA = `
+// Tables that belong to the main pacord.db (app-level config, never reset).
+export const MAIN_SCHEMA = `
 CREATE TABLE IF NOT EXISTS connect_profiles (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   name           TEXT NOT NULL UNIQUE,
@@ -19,6 +20,14 @@ CREATE TABLE IF NOT EXISTS connect_profiles (
   is_default     INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+`;
+
+// Tables that belong to a per-profile database (user data, isolated per server).
+export const PROFILE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS messages (
   msg_id       TEXT PRIMARY KEY,
   from_call    TEXT NOT NULL,
@@ -76,11 +85,6 @@ CREATE TABLE IF NOT EXISTS hams (
   callsign TEXT PRIMARY KEY,
   name     TEXT NOT NULL DEFAULT '',
   ts       INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS meta (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS avatars (

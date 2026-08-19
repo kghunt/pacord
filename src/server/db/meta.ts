@@ -1,4 +1,4 @@
-import { db } from "./index.js";
+import { mainDb as db } from "./index.js";
 
 export function getMeta(key: string): string | null {
   const row = db.prepare("SELECT value FROM meta WHERE key = ?").get(key) as { value: string } | undefined;

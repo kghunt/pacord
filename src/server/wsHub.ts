@@ -25,6 +25,11 @@ export function incrementUnread(key: string): void {
   broadcast({ type: "unread_counts", counts: { ...serverUnread } });
 }
 
+export function clearAllUnread(): void {
+  for (const key of Object.keys(serverUnread)) delete serverUnread[key];
+  broadcast({ type: "unread_counts", counts: {} });
+}
+
 function clearUnread(key: string): void {
   if (!serverUnread[key]) return;
   serverUnread[key] = 0;
