@@ -20,10 +20,11 @@ export default function App() {
 
   useEffect(() => {
     if (connectionStatus === "connected") {
+      loadChannels();
       loadPeers();
       loadRoster();
     }
-  }, [connectionStatus, loadPeers, loadRoster]);
+  }, [connectionStatus, loadChannels, loadPeers, loadRoster]);
 
   return <Shell />;
 }
