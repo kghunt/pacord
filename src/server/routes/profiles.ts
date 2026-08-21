@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import * as profilesDb from "../db/profiles.js";
+import { deleteProfileDb } from "../db/index.js";
 import { defaultPort, defaultRemote, defaultRadioPort } from "../../shared/engineDefaults.js";
 import type { HopStep, NewConnectProfile } from "../../shared/types.js";
 
@@ -68,6 +69,7 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
   app.delete("/api/profiles/:id", async (req, reply) => {
     const id = Number((req.params as { id: string }).id);
     profilesDb.deleteProfile(id);
+    deleteProfileDb(id);
     reply.code(204);
   });
 }

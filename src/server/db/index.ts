@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { MAIN_SCHEMA, PROFILE_SCHEMA, DEFAULT_CHANNELS } from "./schema.js";
 
@@ -36,6 +36,7 @@ ensureColumn(mainDb, "connect_profiles", "admin_port", "admin_port INTEGER DEFAU
 // needed in channels.ts, messages.ts, posts.ts, hams.ts, or avatars.ts.
 // ---------------------------------------------------------------------------
 export let db: DatabaseSync = null!;
+let openProfileId: number | null = null;
 
 function profileDbPath(id: number): string {
   return path.join(DATA_DIR, `profile-${id}.db`);
@@ -45,8 +46,21 @@ export function isProfileDbOpen(): boolean {
   return (db as unknown) !== null;
 }
 
+// Delete a profile's data file. If it's the currently-open DB, close it first.
+export function deleteProfileDb(id: number): void {
+  if (openProfileId === id && (db as unknown) !== null) {
+    try { db.close(); } catch { /* ignore */ }
+    db = null!;
+    openProfileId = null;
+  }
+  const dbPath = profileDbPath(id);
+  for (const suffix of ["", "-wal", "-shm"]) {
+    try { rmSync(dbPath + suffix); } catch { /* file may not exist */ }
+  }
+}
+
 export function openProfileDb(id: number): void {
-  if (db) {
+  if ((db as unknown) !== null) {
     try { db.close(); } catch { /* ignore */ }
   }
   const profileDb = new DatabaseSync(profileDbPath(id));
@@ -67,4 +81,5 @@ export function openProfileDb(id: number): void {
   }
 
   db = profileDb;
+  openProfileId = id;
 }
