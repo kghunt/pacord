@@ -5,6 +5,7 @@ import { wireToEmoji } from "@shared/emoji";
 import { fullDisplayFor } from "../state/connectionStore";
 import { formatTime, COMMON_REACTIONS } from "../utils";
 import { AvatarImg } from "./AvatarImg";
+import { MarkdownBody } from "./MarkdownBody";
 
 export interface DisplayItem {
   key: string;
@@ -75,7 +76,7 @@ export function MessageItem({
           </div>
         )}
         <div className="message-body">
-          {item.body}
+          <MarkdownBody text={item.body} />
           {item.editTs && <span className="message-edited">(edited)</span>}
           {item.isMine && (
             <span

@@ -1,6 +1,6 @@
 {
   "name": "pacord",
-  "version": "0.4.34",
+  "version": "0.4.35",
   "description": "Discord-inspired client for WhatsPac (WPS) chat over an XRouter node",
   "private": true,
   "type": "module",
@@ -22,6 +22,8 @@
     "@fastify/websocket": "^11.0.2",
     "emoji-picker-react": "^4.19.1",
     "fastify": "^5.2.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {

@@ -50,6 +50,30 @@ export function Composer({
     if (replyLabel !== null) ref.current?.focus();
   }, [replyLabel]);
 
+  // Slash shortcut expansions — triggered by typing the keyword then Space.
+  // Returns the expanded text and new cursor position, or null if no match.
+  const SLASH_SHORTCUTS: Record<string, { expand: string; cursor: number }> = {
+    "/code":   { expand: "```\n\n```",   cursor: 4 },
+    "/bold":   { expand: "****",          cursor: 2 },
+    "/italic": { expand: "__",            cursor: 1 },
+    "/quote":  { expand: "> ",            cursor: 2 },
+  };
+
+  function applySlashShortcut(
+    value: string,
+    selStart: number
+  ): { next: string; pos: number } | null {
+    const before = value.slice(0, selStart);
+    for (const [keyword, { expand, cursor }] of Object.entries(SLASH_SHORTCUTS)) {
+      if (before.endsWith(keyword + " ") || before === keyword + " ") {
+        const matchStart = selStart - keyword.length - 1;
+        const next = value.slice(0, matchStart) + expand + value.slice(selStart);
+        return { next, pos: matchStart + cursor };
+      }
+    }
+    return null;
+  }
+
   function detectMention(value: string, selStart: number) {
     const before = value.slice(0, selStart);
     const match = before.match(/@(\w*)$/);
@@ -191,10 +215,25 @@ export function Composer({
           placeholder={placeholder}
           value={text}
           onChange={(e) => {
-            setText(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = `${e.target.scrollHeight}px`;
-            detectMention(e.target.value, e.target.selectionStart);
+            const val = e.target.value;
+            const sel = e.target.selectionStart;
+            const shortcut = applySlashShortcut(val, sel);
+            if (shortcut) {
+              setText(shortcut.next);
+              requestAnimationFrame(() => {
+                const el = ref.current;
+                if (!el) return;
+                el.setSelectionRange(shortcut.pos, shortcut.pos);
+                el.style.height = "auto";
+                el.style.height = `${el.scrollHeight}px`;
+              });
+              detectMention(shortcut.next, shortcut.pos);
+            } else {
+              setText(val);
+              e.target.style.height = "auto";
+              e.target.style.height = `${e.target.scrollHeight}px`;
+              detectMention(val, sel);
+            }
           }}
           onKeyDown={onKeyDown}
           onSelect={(e) => {
