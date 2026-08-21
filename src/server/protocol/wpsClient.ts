@@ -24,6 +24,9 @@ import * as avatarsDb from "../db/avatars.js";
 
 const CLIENT_VERSION = 0.92;
 const KEEPALIVE_INTERVAL_MS = 9 * 60 * 1000;
+// If no data arrives within this window the link is silently dead (half-open
+// TCP over BPQ). Force-close so the existing reconnect logic takes over.
+const RECV_WATCHDOG_MS = 15 * 60 * 1000;
 const AUTO_BACKFILL_POST_COUNT = 50;
 const RECONNECT_INITIAL_MS = 2000;
 const RECONNECT_MAX_MS = 60_000;
@@ -48,6 +51,7 @@ export class WpsClient extends EventEmitter {
   private reconnectDelay = RECONNECT_INITIAL_MS;
   private reconnecting = false;
   private stabilityTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastRecvMs = 0;
   private debugEnabled = false;
 
   setDebug(enabled: boolean): void {
@@ -170,6 +174,7 @@ export class WpsClient extends EventEmitter {
     this.decoder = new FrameDecoder();
     this.online.clear();
     this.pausedChannels.clear();
+    this.lastRecvMs = Date.now();
     const stream = this.buildTransport();
     try {
       await stream.open();
@@ -376,6 +381,14 @@ export class WpsClient extends EventEmitter {
     if (this.keepaliveTimer) return;
     this.keepaliveTimer = setInterval(() => {
       if (!this.connected || this.closed) return;
+      // Watchdog: if nothing has been received since the last keepalive fired
+      // the link is silently dead (half-open TCP). Force-close the stream so
+      // recv() unblocks and the reconnect loop takes over.
+      if (Date.now() - this.lastRecvMs > RECV_WATCHDOG_MS) {
+        console.warn("[wpsClient] receive watchdog expired — forcing reconnect");
+        this.stream?.close().catch(() => {});
+        return;
+      }
       this.keepAlive().catch(() => {
         // link loss will surface via the reader loop
       });
@@ -387,6 +400,7 @@ export class WpsClient extends EventEmitter {
       while (!this.closed) {
         if (!this.stream) return;
         const chunk = await this.stream.recv();
+        this.lastRecvMs = Date.now();
         if (chunk.length === 0) {
           await this.handleLinkLoss("eof");
           return;
