@@ -13,6 +13,7 @@ import { broadcast, broadcastDebug, incrementUnread, clearAllUnread } from "./ws
 import { openProfileDb } from "./db/index.js";
 import { sendNtfy } from "./ntfy.js";
 import * as channelsDb from "./db/channels.js";
+import * as hamsDb from "./db/hams.js";
 
 const ACTIVE_PROFILE_META_KEY = "active_profile_id";
 const RETRY_INITIAL_MS = 2000;
@@ -42,6 +43,11 @@ export function getConnectionState(): ConnectionState {
     onlineUsers: activeClient.onlineUsers,
     pausedChannels: activeClient.pausedChannelsSnapshot,
   };
+}
+
+function displayNameFor(callsign: string): string {
+  const ham = hamsDb.lookupHam(callsign);
+  return ham?.name ? `${ham.name}, ${callsign}` : callsign;
 }
 
 export function connectProfile(id: number): void {
@@ -81,14 +87,15 @@ export function connectProfile(id: number): void {
           const serverUrl = metaDb.getMeta("server_url")?.replace(/\/$/, "");
           const slug = chName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
           const clickUrl = serverUrl ? `${serverUrl}/#channel-${slug}` : undefined;
-          sendNtfy(`#${chName}`, `${ev.row.fromCall}: ${ev.row.body}`, "bell", clickUrl);
+          const sender = displayNameFor(ev.row.fromCall);
+          sendNtfy(`#${chName}`, `${sender}: ${ev.row.body}`, "bell", clickUrl);
         }
       }
     } else if (ev.type === "message" && ev.row.fromCall !== myCall) {
       incrementUnread(ev.row.fromCall);
       const serverUrl = metaDb.getMeta("server_url")?.replace(/\/$/, "");
       const clickUrl = serverUrl ? `${serverUrl}/#dm-${ev.row.fromCall.toLowerCase()}` : undefined;
-      sendNtfy(`DM from ${ev.row.fromCall}`, ev.row.body, "envelope", clickUrl);
+      sendNtfy(`DM from ${displayNameFor(ev.row.fromCall)}`, ev.row.body, "envelope", clickUrl);
     }
     broadcast(ev);
   });
