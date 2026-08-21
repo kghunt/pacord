@@ -3,6 +3,7 @@ import * as messagesDb from "../db/messages.js";
 import * as postsDb from "../db/posts.js";
 import * as hamsDb from "../db/hams.js";
 import * as connectionManager from "../connectionManager.js";
+import { isProfileDbOpen } from "../db/index.js";
 
 export async function registerHistoryRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/peers", async (_req, reply) => {
@@ -25,6 +26,7 @@ export async function registerHistoryRoutes(app: FastifyInstance): Promise<void>
   });
 
   app.get("/api/posts/:cid", async (req) => {
+    if (!isProfileDbOpen()) return [];
     const cid = Number((req.params as { cid: string }).cid);
     return postsDb.listPostsForChannel(cid);
   });
@@ -33,7 +35,7 @@ export async function registerHistoryRoutes(app: FastifyInstance): Promise<void>
     const client = connectionManager.getActiveClient();
     return {
       online: client?.onlineUsers ?? [],
-      hams: hamsDb.listHams(),
+      hams: isProfileDbOpen() ? hamsDb.listHams() : [],
     };
   });
 }

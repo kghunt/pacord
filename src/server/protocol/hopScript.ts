@@ -27,6 +27,9 @@ export async function runConnectScript(
   onProgress?: HopProgressFn,
   defaultTimeoutMs = FALLBACK_TIMEOUT_MS
 ): Promise<void> {
+  // Buffer carries only data received *after* the previous step's match so
+  // that a response like "Connected to RHP Server" from step N doesn't
+  // satisfy the wait condition for step N+1 ("Connected to KIDDER").
   let buffered = "";
   for (let i = 0; i < script.length; i++) {
     const step = script[i]!;
@@ -58,5 +61,8 @@ export async function runConnectScript(
       }
       buffered += chunk.toString("latin1");
     }
+    // Advance past the matched text so it can't satisfy a later step's wait.
+    const matchEnd = buffered.indexOf(step.val) + step.val.length;
+    buffered = buffered.slice(matchEnd);
   }
 }

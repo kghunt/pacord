@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { db } from "../db/index.js";
+import { db, isProfileDbOpen } from "../db/index.js";
 import { getActiveProfile } from "../connectionManager.js";
 import type { SearchResult } from "../../shared/types.js";
 
 export async function registerSearchRoute(app: FastifyInstance): Promise<void> {
   app.get("/api/search", async (req, reply) => {
+    if (!isProfileDbOpen()) return { messages: [], posts: [] };
     const qs = req.query as Record<string, string>;
     const q = (qs.q ?? "").trim();
     if (q.length < 2) {

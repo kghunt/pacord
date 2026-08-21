@@ -41,6 +41,10 @@ function profileDbPath(id: number): string {
   return path.join(DATA_DIR, `profile-${id}.db`);
 }
 
+export function isProfileDbOpen(): boolean {
+  return (db as unknown) !== null;
+}
+
 export function openProfileDb(id: number): void {
   if (db) {
     try { db.close(); } catch { /* ignore */ }

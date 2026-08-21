@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import * as avatarsDb from "../db/avatars.js";
 import { getActiveClient } from "../connectionManager.js";
+import { isProfileDbOpen } from "../db/index.js";
 
 export async function registerAvatarRoutes(app: FastifyInstance): Promise<void> {
   app.post("/api/avatar/upload", async (req, reply) => {
@@ -19,6 +20,7 @@ export async function registerAvatarRoutes(app: FastifyInstance): Promise<void> 
   });
 
   app.get("/api/avatars/:callsign", async (req, reply) => {
+    if (!isProfileDbOpen()) { reply.code(404); return { error: "no active profile" }; }
     const callsign = (req.params as { callsign: string }).callsign;
     const row = avatarsDb.getAvatar(callsign);
     if (!row) {
@@ -30,5 +32,5 @@ export async function registerAvatarRoutes(app: FastifyInstance): Promise<void> 
     return Buffer.from(row.dataBase64, "base64");
   });
 
-  app.get("/api/avatars", async () => avatarsDb.listAvatarCallsigns());
+  app.get("/api/avatars", async () => isProfileDbOpen() ? avatarsDb.listAvatarCallsigns() : []);
 }

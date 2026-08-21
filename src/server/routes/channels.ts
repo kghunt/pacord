@@ -1,11 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import * as channelsDb from "../db/channels.js";
+import { isProfileDbOpen } from "../db/index.js";
 import type { NtfyLevel } from "../../shared/types.js";
 
 const VALID_NTFY_LEVELS: NtfyLevel[] = ["none", "mentions", "replies", "all"];
 
 export async function registerChannelRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/api/channels", async () => channelsDb.listChannels());
+  app.get("/api/channels", async () => isProfileDbOpen() ? channelsDb.listChannels() : []);
 
   app.post("/api/channels", async (req, reply) => {
     const b = req.body as { cid: number; name?: string; description?: string };
